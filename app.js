@@ -215,8 +215,9 @@ function environmentLockStatus() {
     lock["env/llm-provider"] === "kotoba-research-assistant" &&
     lock["env/llm-provider-version"] === window.KotobaLLMProvider?.version;
   const schemaOk = lock["env/schema"] === "kotoba-lab-notebook/v1";
-  const verificationOk = lock["env/verification"] === "scripts/verify-lab.mjs";
-  const locked = runtimeOk && providerOk && schemaOk && verificationOk;
+  const verificationOk = lock["env/verification-contract"] === "src/kotoba/lab/verification.cljc";
+  const runnerOk = lock["env/browser-runner"] === "scripts/verify-lab.mjs";
+  const locked = runtimeOk && providerOk && schemaOk && verificationOk && runnerOk;
   return {
     lock,
     locked,
@@ -229,7 +230,8 @@ function environmentLockStatus() {
         `${lock["env/llm-provider"] || "missing"} / ${lock["env/llm-provider-version"] || "missing"}`,
         providerOk,
       ],
-      ["Verification", lock["env/verification"] || "missing", verificationOk],
+      ["Verification contract", lock["env/verification-contract"] || "missing", verificationOk],
+      ["Browser runner", lock["env/browser-runner"] || "missing", runnerOk],
     ],
   };
 }
@@ -326,6 +328,30 @@ function downloadNotebook() {
   URL.revokeObjectURL(url);
 }
 
+function createReviewSnapshot() {
+  const notebook = state.data["lab/notebook"];
+  const report = maturityReport();
+  const environment = environmentLockStatus();
+  const snapshot = {
+    "snapshot/id": cidFor(
+      "snapshot",
+      `${notebook["lab/notebook-id"]}:${notebook["lab/replay-fingerprint"]}:${report.average}`,
+    ),
+    "snapshot/status": makeKeyword("ready"),
+    "snapshot/created-at": new Date().toISOString(),
+    "snapshot/maturity": report.maturity,
+    "snapshot/coverage": `${report.average}%`,
+    "snapshot/replay-fingerprint": notebook["lab/replay-fingerprint"],
+    "snapshot/environment": environment.rows.map(([label, value]) => `${label}: ${value}`).join(" | "),
+    "snapshot/cells": report.cells,
+    "snapshot/artifacts": report.artifacts,
+  };
+  notebook["lab/review-snapshot"] = snapshot;
+  notebook["lab/evidence"]["evidence/review-snapshot"] = snapshot["snapshot/id"];
+  saveNotebook();
+  return snapshot;
+}
+
 function restoreNotebookPayload(payload) {
   state.data = decodeFromStorage(payload.data || payload);
   if (payload.runtime) state.runtime = payload.runtime;
@@ -342,6 +368,7 @@ function ensureNotebookShape() {
   notebook["lab/evidence"] ||= {};
   notebook["lab/runs"] ||= [];
   notebook["lab/replay-fingerprint"] ||= replayFingerprint(notebook);
+  notebook["lab/review-snapshot"] ||= {};
 }
 
 function selectedCell() {
@@ -657,6 +684,7 @@ function maturityReport() {
   const persistenceCoverage = state.storageAvailable ? 70 : 15;
   const runtimeCoverage = Math.max(...runtimeAdapters().map((adapter) => adapter.coverage));
   const environment = environmentLockStatus();
+  const hasSnapshot = Boolean(notebook["lab/review-snapshot"]?.["snapshot/id"]);
   const verificationCoverage = state.storageAvailable && window.KotobaLLMProvider ? (allExecutableSucceeded ? 76 : 72) : 35;
   const evidenceCoverage = Math.min(
     76,
@@ -712,6 +740,13 @@ function maturityReport() {
       state.storageAvailable
         ? "localStorage save/restore plus JSON export/import"
         : "browser storage unavailable",
+    ],
+    [
+      "Review snapshot",
+      hasSnapshot ? 80 : 45,
+      hasSnapshot
+        ? "review snapshot freezes maturity, coverage, environment, cells, artifacts, and replay fingerprint"
+        : "create a review snapshot before sharing",
     ],
     [
       "Replay ledger",
@@ -901,7 +936,22 @@ function renderEvidence(evidence) {
     row.innerHTML = `<strong>${key}</strong><code>${rendered}</code>`;
     panel.appendChild(row);
   });
+  renderReviewSnapshot(panel);
   renderRunLedger(panel);
+}
+
+function renderReviewSnapshot(panel) {
+  const snapshot = state.data["lab/notebook"]["lab/review-snapshot"] || {};
+  const row = document.createElement("div");
+  row.className = "snapshot-card";
+  row.innerHTML = `
+    <strong>Review snapshot</strong>
+    <span>${keywordText(snapshot["snapshot/status"]) || "not created"} / ${
+      snapshot["snapshot/coverage"] || "no coverage"
+    } / ${snapshot["snapshot/replay-fingerprint"] || "no fingerprint"}</span>
+    <code>${snapshot["snapshot/id"] || "snapshot pending"}</code>
+  `;
+  panel.appendChild(row);
 }
 
 function renderRunLedger(panel) {
@@ -1127,6 +1177,13 @@ function setupInteractions() {
     const ok = saveNotebook();
     text("cell-output", ok ? "notebook saved to browser storage" : "browser storage unavailable");
     renderMaturity();
+  });
+
+  document.getElementById("snapshot-button").addEventListener("click", () => {
+    const snapshot = createReviewSnapshot();
+    render();
+    text("cell-output", `review snapshot ready: ${snapshot["snapshot/id"]}`);
+    document.querySelector('[data-tab="evidence"]').click();
   });
 
   document.getElementById("reset-button").addEventListener("click", () => {

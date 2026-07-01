@@ -491,6 +491,7 @@ dd {
 }
 
 .ledger-heading,
+.snapshot-card,
 .run-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(120px, 36%);
@@ -507,14 +508,21 @@ dd {
   background: rgba(118, 118, 128, 0.08);
 }
 
+.snapshot-card {
+  background: rgba(52, 199, 89, 0.08);
+}
+
 .ledger-heading strong,
 .ledger-heading span,
+.snapshot-card strong,
+.snapshot-card span,
 .run-row strong,
 .run-row span {
   display: block;
 }
 
 .ledger-heading span,
+.snapshot-card span,
 .run-row span {
   color: var(--muted);
   font-size: 12px;
@@ -624,6 +632,7 @@ dd {
 
 .artifact-row code,
 .evidence-row code,
+.snapshot-card code,
 .run-row code {
   color: var(--muted);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;

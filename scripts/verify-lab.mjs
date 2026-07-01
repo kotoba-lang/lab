@@ -39,6 +39,11 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+const cljcContract = await readFile(join(root, "src/kotoba/lab/verification.cljc"), "utf8");
+assert(cljcContract.includes("(ns kotoba.lab.verification)"), "CLJC verification namespace missing");
+assert(cljcContract.includes("maturity-ready?"), "CLJC maturity contract missing");
+assert(cljcContract.includes("review-snapshot-ready?"), "CLJC snapshot contract missing");
+
 await new Promise((resolve) => server.listen(port, resolve));
 
 const localChrome =
@@ -65,6 +70,7 @@ try {
   assert(runtimeText.includes("kotoba-lab-notebook/v1"), "schema lock missing");
   assert(runtimeText.includes("shim-0.2.0"), "runtime lock version missing");
   assert(runtimeText.includes("shim-0.1.0"), "provider lock version missing");
+  assert(runtimeText.includes("src/kotoba/lab/verification.cljc"), "CLJC verification contract missing");
   await page.locator(".cell-button").nth(2).click();
   assert((await page.locator("#output-preview table").count()) === 1, "table rich output missing");
   await page.locator(".cell-button").nth(3).click();
@@ -80,6 +86,7 @@ try {
   const output = await page.locator("#cell-output").innerText();
   assert(output.includes("Draft claim-"), "llm output was not materialized");
   assert((await page.locator(".model-preview").count()) === 1, "model rich output missing");
+  await page.click("#snapshot-button");
 
   await page.click('[data-tab="evidence"]');
   const evidence = await page.locator("#evidence-tab").innerText();
@@ -88,6 +95,8 @@ try {
   assert(evidence.includes("shim-0.2.0"), "runtime shim version missing");
   assert(evidence.includes("Run ledger"), "run ledger missing from evidence");
   assert(evidence.includes("kotoba-wasm-safe"), "runtime missing from run ledger");
+  assert(evidence.includes("Review snapshot"), "review snapshot missing from evidence");
+  assert(evidence.includes("bafy-snapshot-"), "review snapshot id missing");
 
   await page.click("#save-button");
   const saved = await page.evaluate(() => Boolean(localStorage.getItem("kotoba-lab:notebook:v1")));
@@ -103,6 +112,7 @@ try {
   assert(maturity.includes("Replay ledger"), "replay ledger coverage missing");
   assert(maturity.includes("Rich outputs"), "rich output coverage missing");
   assert(maturity.includes("Environment lock"), "environment lock coverage missing");
+  assert(maturity.includes("Review snapshot"), "review snapshot coverage missing");
 
   const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   assert(!overflowX, "page has horizontal overflow");
