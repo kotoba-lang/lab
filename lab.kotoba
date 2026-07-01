@@ -36,8 +36,12 @@
     :lab/maturity
     {:maturity/current :m3
      :maturity/target :m4
-     :maturity/coverage "computed in browser from cells, artifacts, run evidence, runtime adapter readiness, and persistence support"
+     :maturity/coverage "computed in browser from cells, artifacts, run evidence, runtime adapter readiness, persistence support, and CI browser verification"
      :maturity/next "replace runtime-shim.js and llm-provider-shim.js with real kotoba-wasm safe-build/runtime and provider adapters"}
+    :lab/verification
+    {:verification/status :ci-active
+     :verification/runner "scripts/verify-lab.mjs"
+     :verification/coverage "runtime adapter, llm provider, persistence, evidence, maturity, and layout overflow"}
     :lab/cells
     [{:cell/id "c-001"
       :cell/kind :query

@@ -543,6 +543,7 @@ function maturityReport() {
   const llmCoverage = window.KotobaLLMProvider ? (llmCells ? 68 : 58) : llmCells ? 45 : 40;
   const persistenceCoverage = state.storageAvailable ? 42 : 15;
   const runtimeCoverage = Math.max(...runtimeAdapters().map((adapter) => adapter.coverage));
+  const verificationCoverage = state.storageAvailable && window.KotobaLLMProvider ? 65 : 35;
   const coverage = [
     ["Notebook UI", 65, "editable cells, block insert, toolbar, inspector"],
     ["Manifest contract", 70, "lab.kotoba drives page state"],
@@ -576,6 +577,11 @@ function maturityReport() {
       state.storageAvailable
         ? "localStorage save/restore plus JSON export/import"
         : "browser storage unavailable",
+    ],
+    [
+      "Verification",
+      verificationCoverage,
+      "Playwright CI covers runtime, LLM, persistence, evidence, maturity, and layout overflow",
     ],
   ];
   const average = Math.round(coverage.reduce((sum, row) => sum + row[1], 0) / coverage.length);
