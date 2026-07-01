@@ -22,10 +22,10 @@
      :inference/llm "llm-infer cells are represented as Kotoba source with explicit :llm-infer capability"
      :inference/replay "dependency and grant checks are evaluated before marking a run clean"}
     :lab/maturity
-    {:maturity/current :m2.5
-     :maturity/target :m3
+    {:maturity/current :m3
+     :maturity/target :m4
      :maturity/coverage "computed in browser from cells, artifacts, run evidence, and persistence support"
-     :maturity/next "replace browser-local runner with kotoba-wasm safe-build/runtime adapter"}
+     :maturity/next "replace browser-local runner with kotoba-wasm safe-build/runtime adapter and real LLM provider adapter"}
     :lab/cells
     [{:cell/id "c-001"
       :cell/kind :query

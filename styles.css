@@ -110,7 +110,8 @@ h2 {
 .tab,
 .block-toolbar button,
 #assistant-generate,
-.top-actions button {
+.top-actions button,
+.import-label {
   min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -118,6 +119,14 @@ h2 {
   color: var(--ink);
   padding: 7px 10px;
   cursor: pointer;
+}
+
+#import-file {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .primary-action {
@@ -132,7 +141,8 @@ h2 {
 .top-actions a:hover,
 .block-toolbar button:hover,
 #assistant-generate:hover,
-.top-actions button:hover {
+.top-actions button:hover,
+.import-label:hover {
   border-color: var(--accent);
   text-decoration: none;
 }

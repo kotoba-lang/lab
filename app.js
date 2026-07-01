@@ -1,6 +1,8 @@
 const state = {
   data: null,
   selectedCellId: null,
+  storageAvailable: false,
+  storageKey: "kotoba-lab:notebook:v1",
 };
 
 const keyword = Symbol("keyword");
@@ -172,6 +174,79 @@ function makeKeyword(value) {
   return { [keyword]: true, value };
 }
 
+function encodeForStorage(value) {
+  if (Array.isArray(value)) return value.map(encodeForStorage);
+  if (value && typeof value === "object") {
+    if (value[keyword]) return { "__kotobaKeyword": value.value };
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, encodeForStorage(nested)]),
+    );
+  }
+  return value;
+}
+
+function decodeFromStorage(value) {
+  if (Array.isArray(value)) return value.map(decodeFromStorage);
+  if (value && typeof value === "object") {
+    if (typeof value.__kotobaKeyword === "string") return makeKeyword(value.__kotobaKeyword);
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, decodeFromStorage(nested)]),
+    );
+  }
+  return value;
+}
+
+function storagePayload() {
+  return {
+    savedAt: new Date().toISOString(),
+    selectedCellId: state.selectedCellId,
+    data: encodeForStorage(state.data),
+  };
+}
+
+function saveNotebook() {
+  if (!state.storageAvailable || !state.data) return false;
+  localStorage.setItem(state.storageKey, JSON.stringify(storagePayload()));
+  return true;
+}
+
+function loadSavedNotebook() {
+  if (!state.storageAvailable) return null;
+  const raw = localStorage.getItem(state.storageKey);
+  if (!raw) return null;
+  const payload = JSON.parse(raw);
+  return {
+    data: decodeFromStorage(payload.data),
+    selectedCellId: payload.selectedCellId,
+    savedAt: payload.savedAt,
+  };
+}
+
+function clearSavedNotebook() {
+  if (state.storageAvailable) localStorage.removeItem(state.storageKey);
+}
+
+function downloadNotebook() {
+  const blob = new Blob([JSON.stringify(storagePayload(), null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "kotoba-lab-notebook.json";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function restoreNotebookPayload(payload) {
+  state.data = decodeFromStorage(payload.data || payload);
+  state.selectedCellId = payload.selectedCellId || state.data["lab/notebook"]["lab/cells"][0]?.["cell/id"];
+  saveNotebook();
+  render();
+}
+
 function selectedCell() {
   return state.data["lab/notebook"]["lab/cells"].find(
     (cell) => cell["cell/id"] === state.selectedCellId,
@@ -214,11 +289,12 @@ function inferCell(cell) {
 
 function llmDraft(prompt, baseCell) {
   const title = prompt.trim() || "Summarize degradation evidence";
+  const shortTitle = title ? `LLM: ${title.slice(0, 28)}` : "LLM claim draft";
   const dependency = baseCell?.["cell/id"] || "c-003";
   return {
     "cell/id": nextCellId(),
     "cell/kind": makeKeyword("kotoba"),
-    "cell/title": `LLM: ${title.slice(0, 42)}`,
+    "cell/title": shortTitle,
     "cell/status": makeKeyword("ready"),
     "cell/policy": [makeKeyword("artifact-read"), makeKeyword("llm-infer"), makeKeyword("artifact-write")],
     "cell/source": `(defn infer-claim [evidence]\n  (llm-infer "kotoba-research-assistant"\n    {:task "${title.replaceAll('"', '\\"')}"\n     :evidence evidence\n     :output :claim-with-citations}))`,
@@ -357,6 +433,7 @@ function runSelectedCell() {
     "evidence/timing-ms": 24 + cell["cell/source"].length,
     "evidence/host": "browser-local kotoba runner",
   };
+  saveNotebook();
 }
 
 function maturityReport() {
@@ -367,9 +444,10 @@ function maturityReport() {
   const withEvidence = cells.filter((cell) => cell["cell/source-cid"] && cell["cell/wasm-cid"]).length;
   const executable = cells.filter((cell) => keywordText(cell["cell/kind"]) !== "markdown").length;
   const llmCells = cells.filter((cell) => /llm-infer/.test(cell["cell/source"] || "")).length;
+  const persistenceCoverage = state.storageAvailable ? 42 : 15;
   const coverage = [
-    ["Notebook UI", 55, "editable cells, block insert, inspector"],
-    ["Manifest contract", 65, "lab.kotoba drives page state"],
+    ["Notebook UI", 65, "editable cells, block insert, toolbar, inspector"],
+    ["Manifest contract", 70, "lab.kotoba drives page state"],
     [
       "Local execution",
       executable ? 35 + Math.round((succeeded / executable) * 20) : 35,
@@ -377,11 +455,17 @@ function maturityReport() {
     ],
     [
       "Evidence",
-      30 + (cells.length ? Math.round((withEvidence / cells.length) * 25) : 0),
+      40 + (cells.length ? Math.round((withEvidence / cells.length) * 20) : 0),
       "run updates source/policy/wasm/output CIDs",
     ],
-    ["LLM workflow", llmCells ? 40 : 32, "llm-infer source generation, no provider call"],
-    ["Persistence", 15, "in-memory only; save/load remains the next coverage gap"],
+    ["LLM workflow", llmCells ? 45 : 40, "llm-infer source generation, no provider call"],
+    [
+      "Persistence",
+      state.storageAvailable ? 55 : persistenceCoverage,
+      state.storageAvailable
+        ? "localStorage save/restore plus JSON export/import"
+        : "browser storage unavailable",
+    ],
   ];
   const average = Math.round(coverage.reduce((sum, row) => sum + row[1], 0) / coverage.length);
   const maturity =
@@ -573,12 +657,15 @@ function addBlock(kind) {
   }
   cells.push(cell);
   state.selectedCellId = cell["cell/id"];
+  saveNotebook();
   render();
 }
 
 function applyEditorSource() {
   const cell = selectedCell();
   cell["cell/source"] = document.getElementById("source-editor").value;
+  cell["cell/status"] = makeKeyword("stale");
+  saveNotebook();
   const inference = inferCell(cell);
   renderInference(inference);
   renderAssistant();
@@ -646,18 +733,53 @@ function setupInteractions() {
     const cell = llmDraft(prompt, selectedCell());
     state.data["lab/notebook"]["lab/cells"].push(cell);
     state.selectedCellId = cell["cell/id"];
+    saveNotebook();
     text("assistant-output", `Generated ${cell["cell/id"]} with llm-infer capability.`);
     render();
+  });
+
+  document.getElementById("save-button").addEventListener("click", () => {
+    const ok = saveNotebook();
+    text("cell-output", ok ? "notebook saved to browser storage" : "browser storage unavailable");
+    renderMaturity();
+  });
+
+  document.getElementById("reset-button").addEventListener("click", () => {
+    clearSavedNotebook();
+    window.location.reload();
+  });
+
+  document.getElementById("export-button").addEventListener("click", downloadNotebook);
+
+  document.getElementById("import-file").addEventListener("change", async (event) => {
+    const [file] = event.target.files;
+    if (!file) return;
+    const payload = JSON.parse(await file.text());
+    restoreNotebookPayload(payload);
+    event.target.value = "";
   });
 }
 
 async function boot() {
   setupInteractions();
   try {
+    try {
+      localStorage.setItem(`${state.storageKey}:probe`, "1");
+      localStorage.removeItem(`${state.storageKey}:probe`);
+      state.storageAvailable = true;
+    } catch {
+      state.storageAvailable = false;
+    }
     const response = await fetch("./lab.kotoba", { cache: "no-store" });
     const source = await response.text();
     const edn = extractLabUi(source);
-    state.data = new EdnParser(edn).parse();
+    const saved = loadSavedNotebook();
+    if (saved?.data) {
+      state.data = saved.data;
+      state.selectedCellId = saved.selectedCellId;
+    } else {
+      state.data = new EdnParser(edn).parse();
+    }
     render();
   } catch (error) {
     text("notebook-title", "Failed to load lab.kotoba");
