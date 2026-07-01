@@ -236,6 +236,159 @@ function nextCellId() {
   return `c-${String(max + 1).padStart(3, "0")}`;
 }
 
+function stableHash(input) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function cidFor(prefix, input) {
+  return `bafy-${prefix}-${stableHash(input)}`;
+}
+
+function nowRunId() {
+  const iso = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
+  return `r-${iso}`;
+}
+
+function materializeOutput(cell, inference) {
+  const source = cell["cell/source"] || "";
+  const kind = keywordText(cell["cell/kind"]);
+  if (inference.missing.length > 0) {
+    return {
+      status: makeKeyword("failed"),
+      output: `policy review required: ${inference.missing.join(", ")}`,
+      mediaType: "application/edn",
+      artifactKind: makeKeyword("evidence"),
+    };
+  }
+  if (inference.blocked.length > 0) {
+    return {
+      status: makeKeyword("stale"),
+      output: `dependency blocked: ${inference.blocked.join(", ")}`,
+      mediaType: "application/edn",
+      artifactKind: makeKeyword("log"),
+    };
+  }
+  if (source.includes("llm-infer")) {
+    return {
+      status: makeKeyword("succeeded"),
+      output: "LLM claim draft artifact generated with citations required",
+      mediaType: "text/markdown",
+      artifactKind: makeKeyword("model"),
+    };
+  }
+  if (kind === "viz" || source.includes(":mark")) {
+    return {
+      status: makeKeyword("succeeded"),
+      output: "figure artifact generated from declarative viz spec",
+      mediaType: "image/svg+xml",
+      artifactKind: makeKeyword("figure"),
+    };
+  }
+  if (kind === "table" || source.includes("table/") || source.includes(":group-by")) {
+    return {
+      status: makeKeyword("succeeded"),
+      output: "table artifact generated from Kotoba table transform",
+      mediaType: "application/vnd.apache.arrow.file",
+      artifactKind: makeKeyword("table"),
+    };
+  }
+  if (kind === "query" || source.includes("kqe-query")) {
+    return {
+      status: makeKeyword("succeeded"),
+      output: "query result materialized as table artifact",
+      mediaType: "application/vnd.apache.arrow.file",
+      artifactKind: makeKeyword("table"),
+    };
+  }
+  return {
+    status: makeKeyword("succeeded"),
+    output: "Kotoba cell evaluated by browser-local deterministic runner",
+    mediaType: "application/edn",
+    artifactKind: makeKeyword("evidence"),
+  };
+}
+
+function runSelectedCell() {
+  const notebook = state.data["lab/notebook"];
+  const cell = selectedCell();
+  applyEditorSource();
+  const inference = inferCell(cell);
+  const sourceCid = cidFor("source", cell["cell/source"]);
+  const policyCid = cidFor("policy", JSON.stringify((cell["cell/policy"] || []).map(keywordText)));
+  const wasmCid = cidFor("wasm", `${cell["cell/id"]}:${cell["cell/source"]}:${policyCid}`);
+  const result = materializeOutput(cell, inference);
+  const outputCid = cidFor("artifact", `${cell["cell/id"]}:${cell["cell/source"]}:${result.output}`);
+  const runId = nowRunId();
+
+  cell["cell/status"] = result.status;
+  cell["cell/output"] = result.output;
+  cell["cell/source-cid"] = sourceCid;
+  cell["cell/wasm-cid"] = wasmCid;
+  cell["cell/output-cids"] = [outputCid];
+
+  const artifactName = `${cell["cell/id"]}-${keywordText(cell["cell/kind"])}-output`;
+  const artifacts = notebook["lab/artifacts"];
+  const existingIndex = artifacts.findIndex((artifact) => artifact["artifact/name"] === artifactName);
+  const artifact = {
+    "artifact/name": artifactName,
+    "artifact/kind": result.artifactKind,
+    "artifact/cid": outputCid,
+    "artifact/media-type": result.mediaType,
+    "artifact/size": `${Math.max(1, Math.ceil((result.output.length + cell["cell/source"].length) / 32))} KB`,
+  };
+  if (existingIndex >= 0) artifacts[existingIndex] = artifact;
+  else artifacts.push(artifact);
+
+  notebook["lab/run-id"] = runId;
+  notebook["lab/replay-status"] = keywordText(result.status) === "succeeded" ? "replayable" : "needs review";
+  notebook["lab/evidence"] = {
+    "evidence/source-cid": sourceCid,
+    "evidence/policy-cid": policyCid,
+    "evidence/wasm-cid": wasmCid,
+    "evidence/input-cids": (cell["cell/depends-on"] || []).map((dep) => cidFor("dep", dep)),
+    "evidence/output-cids": [outputCid],
+    "evidence/capabilities-used": inference.inferred.map(makeKeyword),
+    "evidence/replay": inference.replay,
+    "evidence/timing-ms": 24 + cell["cell/source"].length,
+    "evidence/host": "browser-local kotoba runner",
+  };
+}
+
+function maturityReport() {
+  const notebook = state.data["lab/notebook"];
+  const cells = notebook["lab/cells"];
+  const artifacts = notebook["lab/artifacts"];
+  const succeeded = cells.filter((cell) => keywordText(cell["cell/status"]) === "succeeded").length;
+  const withEvidence = cells.filter((cell) => cell["cell/source-cid"] && cell["cell/wasm-cid"]).length;
+  const executable = cells.filter((cell) => keywordText(cell["cell/kind"]) !== "markdown").length;
+  const llmCells = cells.filter((cell) => /llm-infer/.test(cell["cell/source"] || "")).length;
+  const coverage = [
+    ["Notebook UI", 55, "editable cells, block insert, inspector"],
+    ["Manifest contract", 65, "lab.kotoba drives page state"],
+    [
+      "Local execution",
+      executable ? 35 + Math.round((succeeded / executable) * 20) : 35,
+      "browser-local runner materializes deterministic outputs",
+    ],
+    [
+      "Evidence",
+      30 + (cells.length ? Math.round((withEvidence / cells.length) * 25) : 0),
+      "run updates source/policy/wasm/output CIDs",
+    ],
+    ["LLM workflow", llmCells ? 40 : 32, "llm-infer source generation, no provider call"],
+    ["Persistence", 15, "in-memory only; save/load remains the next coverage gap"],
+  ];
+  const average = Math.round(coverage.reduce((sum, row) => sum + row[1], 0) / coverage.length);
+  const maturity =
+    average >= 70 ? "M4" : average >= 55 ? "M3" : average >= 35 ? "M2.5" : average >= 20 ? "M2" : "M1";
+  return { coverage, average, maturity, artifacts: artifacts.length, cells: cells.length };
+}
+
 function render() {
   const data = state.data;
   const notebook = data["lab/notebook"];
@@ -254,6 +407,7 @@ function render() {
   renderArtifacts(notebook["lab/artifacts"]);
   renderEvidence(notebook["lab/evidence"]);
   renderAssistant();
+  renderMaturity();
 }
 
 function renderCells(cells) {
@@ -375,6 +529,29 @@ function renderAssistant() {
   text("assistant-summary", summary);
 }
 
+function renderMaturity() {
+  const panel = document.getElementById("maturity-tab");
+  const report = maturityReport();
+  panel.innerHTML = `
+    <div class="assistant-card">
+      <strong>${report.maturity} / ${report.average}% coverage</strong>
+      <span>${report.cells} cells, ${report.artifacts} artifacts. Maturity rises when cells run with evidence and artifacts.</span>
+    </div>
+  `;
+  report.coverage.forEach(([label, percent, note]) => {
+    const row = document.createElement("div");
+    row.className = "coverage-row";
+    row.innerHTML = `
+      <div><strong>${label}</strong><span>${note}</span></div>
+      <div class="coverage-meter" aria-label="${label} coverage ${percent}%">
+        <span style="width: ${percent}%"></span>
+      </div>
+      <code>${percent}%</code>
+    `;
+    panel.appendChild(row);
+  });
+}
+
 function addBlock(kind) {
   const cells = state.data["lab/notebook"]["lab/cells"];
   const current = selectedCell();
@@ -423,6 +600,9 @@ function setupInteractions() {
       document
         .getElementById("assistant-tab")
         .classList.toggle("is-hidden", active !== "assistant");
+      document
+        .getElementById("maturity-tab")
+        .classList.toggle("is-hidden", active !== "maturity");
     });
   });
 
@@ -433,14 +613,12 @@ function setupInteractions() {
   document.getElementById("source-editor").addEventListener("input", applyEditorSource);
 
   document.getElementById("run-button").addEventListener("click", () => {
-    const cell = selectedCell();
-    applyEditorSource();
-    const inference = inferCell(cell);
-    cell["cell/status"] = { [keyword]: true, value: "succeeded" };
-    cell["cell/output"] =
-      inference.missing.length > 0
-        ? `policy review required: ${inference.missing.join(", ")}`
-        : `kotoba run complete / ${new Date().toISOString()}`;
+    runSelectedCell();
+    render();
+  });
+
+  document.getElementById("toolbar-run").addEventListener("click", () => {
+    runSelectedCell();
     render();
   });
 

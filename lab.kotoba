@@ -21,6 +21,11 @@
      :inference/policy "infer minimal cell capabilities from Kotoba source and block kind"
      :inference/llm "llm-infer cells are represented as Kotoba source with explicit :llm-infer capability"
      :inference/replay "dependency and grant checks are evaluated before marking a run clean"}
+    :lab/maturity
+    {:maturity/current :m2.5
+     :maturity/target :m3
+     :maturity/coverage "computed in browser from cells, artifacts, run evidence, and persistence support"
+     :maturity/next "replace browser-local runner with kotoba-wasm safe-build/runtime adapter"}
     :lab/cells
     [{:cell/id "c-001"
       :cell/kind :query

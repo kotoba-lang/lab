@@ -382,6 +382,47 @@ dd {
   padding: 10px;
 }
 
+.coverage-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  padding: 10px;
+}
+
+.coverage-row strong,
+.coverage-row span {
+  display: block;
+}
+
+.coverage-row span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.coverage-row code {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.coverage-meter {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(118, 118, 128, 0.16);
+}
+
+.coverage-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
 .inference-card strong,
 .assistant-card strong {
   display: block;
@@ -503,6 +544,10 @@ dd {
   .tab {
     flex: 1 1 auto;
     text-align: center;
+  }
+
+  .coverage-row {
+    grid-template-columns: 1fr;
   }
 
   h1 {
