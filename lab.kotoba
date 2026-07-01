@@ -37,7 +37,7 @@
     :lab/maturity
     {:maturity/current :m3
      :maturity/target :m4
-     :maturity/coverage "computed in browser from cells, artifacts, run-all evidence, runtime adapter readiness, replay ledger, persistence support, and CI browser verification"
+     :maturity/coverage "computed in browser from cells, artifacts, rich outputs, run-all evidence, runtime adapter readiness, replay ledger, persistence support, and CI browser verification"
      :maturity/next "replace runtime-shim.js and llm-provider-shim.js with real kotoba-wasm safe-build/runtime and provider adapters"}
     :lab/verification
     {:verification/status :ci-active
@@ -52,6 +52,8 @@
       :cell/source "(defn modules [graph]\n  (kqe-query graph :module/degradation))"
       :cell/depends-on []
       :cell/output "1,248 modules / 36 months / 9 sites"
+      :cell/output-kind :table
+      :cell/output-media-type "application/vnd.apache.arrow.file"
       :cell/source-cid "bafy-source-c001"
       :cell/wasm-cid "bafy-wasm-c001"
       :cell/output-cids ["bafy-output-c001"]}
@@ -63,6 +65,8 @@
       :cell/source "(defn normalize [rows]\n  (table/select rows [:site :month :loss-pct :temperature]))"
       :cell/depends-on ["c-001"]
       :cell/output "table: normalized-observations.arrow"
+      :cell/output-kind :table
+      :cell/output-media-type "application/vnd.apache.arrow.file"
       :cell/source-cid "bafy-source-c002"
       :cell/wasm-cid "bafy-wasm-c002"
       :cell/output-cids ["bafy-output-c002"]}
@@ -74,6 +78,8 @@
       :cell/source "{:group-by [:site :month]\n :measures [{:name :avg-loss :op :mean :column :loss-pct}]}"
       :cell/depends-on ["c-002"]
       :cell/output "108 grouped rows"
+      :cell/output-kind :table
+      :cell/output-media-type "application/vnd.apache.arrow.file"
       :cell/source-cid "bafy-source-c003"
       :cell/wasm-cid "bafy-wasm-c003"
       :cell/output-cids ["bafy-output-c003"]}
@@ -84,7 +90,9 @@
       :cell/policy [:artifact-read :artifact-write]
       :cell/source "{:mark :line\n :x :month\n :y :avg-loss\n :color :site\n :facet :temperature-band}"
       :cell/depends-on ["c-003"]
-      :cell/output "figure: degradation-curve.svg"}
+      :cell/output "figure: degradation-curve.svg"
+      :cell/output-kind :figure
+      :cell/output-media-type "image/svg+xml"}
      {:cell/id "c-005"
       :cell/kind :markdown
       :cell/title "Claim"

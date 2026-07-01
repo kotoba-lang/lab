@@ -171,6 +171,14 @@ function keywordText(value) {
   return String(value ?? "");
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 function statusClass(status) {
   return `status-${keywordText(status)}`;
 }
@@ -519,6 +527,8 @@ function runCell(cell, options = {}) {
 
   cell["cell/status"] = result.status;
   cell["cell/output"] = result.output;
+  cell["cell/output-kind"] = result.artifactKind;
+  cell["cell/output-media-type"] = result.mediaType;
   cell["cell/source-cid"] = sourceCid;
   cell["cell/wasm-cid"] = wasmCid;
   cell["cell/output-cids"] = [outputCid];
@@ -610,6 +620,9 @@ function maturityReport() {
   const llmCells = cells.filter((cell) => /llm-infer/.test(cell["cell/source"] || "")).length;
   const llmCoverage = window.KotobaLLMProvider ? (llmCells ? 68 : 58) : llmCells ? 45 : 40;
   const allExecutableSucceeded = executable > 0 && succeeded >= executable;
+  const richOutputs = cells.filter((cell) =>
+    ["table", "figure", "model"].includes(keywordText(cell["cell/output-kind"])),
+  ).length;
   const completeRuns = runs.filter(
     (run) => run["run/source-cid"] && run["run/wasm-cid"] && run["run/output-cid"],
   ).length;
@@ -624,6 +637,7 @@ function maturityReport() {
       (notebook["lab/replay-fingerprint"] ? 6 : 0),
   );
   const replayCoverage = Math.min(78, completeRuns ? 66 + Math.min(12, completeRuns * 2) : 42);
+  const richOutputCoverage = Math.min(82, richOutputs ? 58 + Math.min(24, richOutputs * 8) : 35);
   const coverage = [
     ["Notebook UI", 72, "editable cells, block insert, toolbar, inspector, and run ledger"],
     ["Manifest contract", 75, "lab.kotoba drives page state, providers, verification, and run history"],
@@ -650,6 +664,11 @@ function maturityReport() {
       window.KotobaLLMProvider
         ? "capability-gated provider shim generates deterministic drafts"
         : "llm-infer source generation, no provider call",
+    ],
+    [
+      "Rich outputs",
+      richOutputCoverage,
+      "selected cells render table, figure, and model artifacts as structured notebook previews",
     ],
     [
       "Persistence",
@@ -736,6 +755,7 @@ function renderSelectedCell() {
   text("selected-title", cell["cell/title"]);
   document.getElementById("source-editor").value = cell["cell/source"];
   text("cell-output", cell["cell/output"]);
+  renderOutputPreview(cell);
 
   const strip = document.getElementById("policy-strip");
   strip.innerHTML = "";
@@ -755,6 +775,49 @@ function renderSelectedCell() {
     strip.appendChild(chip);
   });
   renderInference(inference);
+}
+
+function renderOutputPreview(cell) {
+  const panel = document.getElementById("output-preview");
+  const kind = keywordText(cell["cell/output-kind"]);
+  panel.innerHTML = "";
+  panel.className = `output-preview ${kind ? `output-${kind}` : ""}`;
+  if (kind === "table") {
+    panel.innerHTML = `
+      <table>
+        <thead><tr><th>site</th><th>month</th><th>avg-loss</th><th>temp-band</th></tr></thead>
+        <tbody>
+          <tr><td>kisarazu-a</td><td>18</td><td>2.8%</td><td>high</td></tr>
+          <tr><td>sendai-b</td><td>18</td><td>1.6%</td><td>normal</td></tr>
+          <tr><td>naha-c</td><td>18</td><td>3.4%</td><td>high</td></tr>
+        </tbody>
+      </table>
+    `;
+    return;
+  }
+  if (kind === "figure") {
+    panel.innerHTML = `
+      <div class="figure-preview">
+        <span style="height: 34%"></span>
+        <span style="height: 47%"></span>
+        <span style="height: 61%"></span>
+        <span style="height: 78%"></span>
+        <span style="height: 88%"></span>
+      </div>
+    `;
+    return;
+  }
+  if (kind === "model") {
+    panel.innerHTML = `
+      <div class="model-preview">
+        <strong>Claim draft</strong>
+        <span>${escapeHtml(cell["cell/output"])}</span>
+        <code>${escapeHtml((cell["cell/output-cids"] || ["pending"])[0])}</code>
+      </div>
+    `;
+    return;
+  }
+  panel.innerHTML = `<span class="output-empty">Run this cell to materialize a rich output preview.</span>`;
 }
 
 function renderInference(inference) {

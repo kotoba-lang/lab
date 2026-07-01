@@ -61,6 +61,10 @@ try {
   const runtimeText = await page.locator("#runtime-tab").innerText();
   assert(runtimeText.includes("Active: kotoba-wasm-safe"), "runtime adapter did not activate");
   assert(runtimeText.includes("available"), "runtime adapter availability missing");
+  await page.locator(".cell-button").nth(2).click();
+  assert((await page.locator("#output-preview table").count()) === 1, "table rich output missing");
+  await page.locator(".cell-button").nth(3).click();
+  assert((await page.locator(".figure-preview").count()) === 1, "figure rich output missing");
 
   await page.click('[data-add-block="llm"]');
   await page.fill(
@@ -71,6 +75,7 @@ try {
   await page.locator(".cell-button").last().click();
   const output = await page.locator("#cell-output").innerText();
   assert(output.includes("Draft claim-"), "llm output was not materialized");
+  assert((await page.locator(".model-preview").count()) === 1, "model rich output missing");
 
   await page.click('[data-tab="evidence"]');
   const evidence = await page.locator("#evidence-tab").innerText();
@@ -92,6 +97,7 @@ try {
   assert(maturity.includes("M4 /"), "maturity did not reach M4 in verified flow");
   assert(maturity.includes("Verification"), "verification coverage missing");
   assert(maturity.includes("Replay ledger"), "replay ledger coverage missing");
+  assert(maturity.includes("Rich outputs"), "rich output coverage missing");
 
   const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   assert(!overflowX, "page has horizontal overflow");

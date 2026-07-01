@@ -375,6 +375,82 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.output-preview {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.output-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.output-preview th,
+.output-preview td {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.output-preview th {
+  color: var(--muted);
+  font-weight: 800;
+  background: rgba(118, 118, 128, 0.08);
+}
+
+.figure-preview {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  height: 118px;
+  padding: 14px;
+  background:
+    linear-gradient(to top, rgba(118, 118, 128, 0.13) 1px, transparent 1px) 0 0 / 100% 25%,
+    #fff;
+}
+
+.figure-preview span {
+  display: block;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, #34c759, #007aff);
+}
+
+.model-preview {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.model-preview strong,
+.model-preview span,
+.model-preview code {
+  display: block;
+}
+
+.model-preview span {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.model-preview code,
+.output-empty {
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.output-empty {
+  display: block;
+  padding: 12px;
+}
+
 .inference-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
