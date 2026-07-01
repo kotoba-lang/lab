@@ -17,6 +17,14 @@
     :lab/runtime "kotoba-wasm/safe"
     :lab/compiler "kotoba wasm safe-build"
     :lab/storage "Datoms + CID artifacts"
+    :lab/environment-lock
+    {:env/schema "kotoba-lab-notebook/v1"
+     :env/runtime "kotoba-wasm-safe"
+     :env/runtime-version "shim-0.2.0"
+     :env/llm-provider "kotoba-research-assistant"
+     :env/llm-provider-version "shim-0.1.0"
+     :env/verification "scripts/verify-lab.mjs"
+     :env/status :locked}
     :lab/inference
     {:inference/engine :kotoba-local
      :inference/policy "infer minimal cell capabilities from Kotoba source and block kind"
@@ -37,12 +45,12 @@
     :lab/maturity
     {:maturity/current :m3
      :maturity/target :m4
-     :maturity/coverage "computed in browser from cells, artifacts, rich outputs, run-all evidence, runtime adapter readiness, replay ledger, persistence support, and CI browser verification"
+     :maturity/coverage "computed in browser from cells, artifacts, rich outputs, run-all evidence, runtime adapter readiness, environment lock, replay ledger, persistence support, and CI browser verification"
      :maturity/next "replace runtime-shim.js and llm-provider-shim.js with real kotoba-wasm safe-build/runtime and provider adapters"}
     :lab/verification
     {:verification/status :ci-active
      :verification/runner "scripts/verify-lab.mjs"
-     :verification/coverage "runtime adapter, llm provider, persistence, evidence, maturity, and layout overflow"}
+     :verification/coverage "runtime adapter, llm provider, environment lock, persistence, evidence, maturity, and layout overflow"}
     :lab/cells
     [{:cell/id "c-001"
       :cell/kind :query

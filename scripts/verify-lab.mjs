@@ -61,6 +61,10 @@ try {
   const runtimeText = await page.locator("#runtime-tab").innerText();
   assert(runtimeText.includes("Active: kotoba-wasm-safe"), "runtime adapter did not activate");
   assert(runtimeText.includes("available"), "runtime adapter availability missing");
+  assert(runtimeText.includes("Environment lock: locked"), "environment lock did not resolve");
+  assert(runtimeText.includes("kotoba-lab-notebook/v1"), "schema lock missing");
+  assert(runtimeText.includes("shim-0.2.0"), "runtime lock version missing");
+  assert(runtimeText.includes("shim-0.1.0"), "provider lock version missing");
   await page.locator(".cell-button").nth(2).click();
   assert((await page.locator("#output-preview table").count()) === 1, "table rich output missing");
   await page.locator(".cell-button").nth(3).click();
@@ -98,6 +102,7 @@ try {
   assert(maturity.includes("Verification"), "verification coverage missing");
   assert(maturity.includes("Replay ledger"), "replay ledger coverage missing");
   assert(maturity.includes("Rich outputs"), "rich output coverage missing");
+  assert(maturity.includes("Environment lock"), "environment lock coverage missing");
 
   const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   assert(!overflowX, "page has horizontal overflow");

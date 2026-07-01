@@ -206,6 +206,34 @@ function runtimeAdapters() {
   ];
 }
 
+function environmentLockStatus() {
+  const lock = state.data?.["lab/notebook"]?.["lab/environment-lock"] || {};
+  const runtimeOk =
+    lock["env/runtime"] === "kotoba-wasm-safe" &&
+    lock["env/runtime-version"] === window.KotobaWasmRuntime?.version;
+  const providerOk =
+    lock["env/llm-provider"] === "kotoba-research-assistant" &&
+    lock["env/llm-provider-version"] === window.KotobaLLMProvider?.version;
+  const schemaOk = lock["env/schema"] === "kotoba-lab-notebook/v1";
+  const verificationOk = lock["env/verification"] === "scripts/verify-lab.mjs";
+  const locked = runtimeOk && providerOk && schemaOk && verificationOk;
+  return {
+    lock,
+    locked,
+    coverage: locked ? 84 : 35,
+    rows: [
+      ["Schema", lock["env/schema"] || "missing", schemaOk],
+      ["Runtime", `${lock["env/runtime"] || "missing"} / ${lock["env/runtime-version"] || "missing"}`, runtimeOk],
+      [
+        "LLM provider",
+        `${lock["env/llm-provider"] || "missing"} / ${lock["env/llm-provider-version"] || "missing"}`,
+        providerOk,
+      ],
+      ["Verification", lock["env/verification"] || "missing", verificationOk],
+    ],
+  };
+}
+
 function selectRuntimeAdapter() {
   const adapters = runtimeAdapters();
   const preferred = adapters.find((adapter) => adapter.id === state.runtime.preferred);
@@ -628,6 +656,7 @@ function maturityReport() {
   ).length;
   const persistenceCoverage = state.storageAvailable ? 70 : 15;
   const runtimeCoverage = Math.max(...runtimeAdapters().map((adapter) => adapter.coverage));
+  const environment = environmentLockStatus();
   const verificationCoverage = state.storageAvailable && window.KotobaLLMProvider ? (allExecutableSucceeded ? 76 : 72) : 35;
   const evidenceCoverage = Math.min(
     76,
@@ -652,6 +681,13 @@ function maturityReport() {
       state.runtime.active === "kotoba-wasm-safe"
         ? "kotoba-wasm adapter shim available"
         : "adapter boundary ready; local fallback active",
+    ],
+    [
+      "Environment lock",
+      environment.coverage,
+      environment.locked
+        ? "schema, runtime, provider, and verifier versions match the notebook lock"
+        : "environment lock is incomplete or mismatched",
     ],
     [
       "Evidence",
@@ -904,12 +940,29 @@ function renderAssistant() {
 function renderRuntime() {
   const panel = document.getElementById("runtime-tab");
   const adapters = runtimeAdapters();
+  const environment = environmentLockStatus();
   panel.innerHTML = `
     <div class="assistant-card">
       <strong>Active: ${state.runtime.active}</strong>
       <span>Preferred adapter is ${state.runtime.preferred}. Production coverage increases when KotobaWasmRuntime is loaded.</span>
     </div>
+    <div class="assistant-card">
+      <strong>Environment lock: ${environment.locked ? "locked" : "review"}</strong>
+      <span>Notebook schema, runtime, provider, and CI verifier are pinned for replay.</span>
+    </div>
   `;
+  environment.rows.forEach(([label, value, ok]) => {
+    const row = document.createElement("div");
+    row.className = "runtime-row";
+    row.innerHTML = `
+      <div>
+        <strong>${label}</strong>
+        <span>${value}</span>
+      </div>
+      <code>${ok ? "locked" : "review"}</code>
+    `;
+    panel.appendChild(row);
+  });
   adapters.forEach((adapter) => {
     const row = document.createElement("div");
     row.className = "runtime-row";
