@@ -20,6 +20,7 @@
    :rich-outputs
    :persistence
    :review-snapshot
+   :contract-verification
    :replay-ledger
    :browser-verification])
 

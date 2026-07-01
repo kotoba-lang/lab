@@ -685,6 +685,7 @@ function maturityReport() {
   const runtimeCoverage = Math.max(...runtimeAdapters().map((adapter) => adapter.coverage));
   const environment = environmentLockStatus();
   const hasSnapshot = Boolean(notebook["lab/review-snapshot"]?.["snapshot/id"]);
+  const contractVerified = environment.lock["env/verification-contract"] === "src/kotoba/lab/verification.cljc";
   const verificationCoverage = state.storageAvailable && window.KotobaLLMProvider ? (allExecutableSucceeded ? 76 : 72) : 35;
   const evidenceCoverage = Math.min(
     76,
@@ -747,6 +748,13 @@ function maturityReport() {
       hasSnapshot
         ? "review snapshot freezes maturity, coverage, environment, cells, artifacts, and replay fingerprint"
         : "create a review snapshot before sharing",
+    ],
+    [
+      "Contract verification",
+      contractVerified ? 82 : 35,
+      contractVerified
+        ? "CLJC verification contract is checked by CI before browser replay"
+        : "CLJC verification contract is not pinned",
     ],
     [
       "Replay ledger",

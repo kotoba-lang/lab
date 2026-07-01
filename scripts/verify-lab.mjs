@@ -43,6 +43,7 @@ const cljcContract = await readFile(join(root, "src/kotoba/lab/verification.cljc
 assert(cljcContract.includes("(ns kotoba.lab.verification)"), "CLJC verification namespace missing");
 assert(cljcContract.includes("maturity-ready?"), "CLJC maturity contract missing");
 assert(cljcContract.includes("review-snapshot-ready?"), "CLJC snapshot contract missing");
+assert(cljcContract.includes(":review-snapshot"), "CLJC review snapshot coverage missing");
 
 await new Promise((resolve) => server.listen(port, resolve));
 
@@ -113,6 +114,7 @@ try {
   assert(maturity.includes("Rich outputs"), "rich output coverage missing");
   assert(maturity.includes("Environment lock"), "environment lock coverage missing");
   assert(maturity.includes("Review snapshot"), "review snapshot coverage missing");
+  assert(maturity.includes("Contract verification"), "contract verification coverage missing");
 
   const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   assert(!overflowX, "page has horizontal overflow");
