@@ -16,6 +16,11 @@
     :lab/runtime "kotoba-wasm/safe"
     :lab/compiler "kotoba wasm safe-build"
     :lab/storage "Datoms + CID artifacts"
+    :lab/inference
+    {:inference/engine :kotoba-local
+     :inference/policy "infer minimal cell capabilities from Kotoba source and block kind"
+     :inference/llm "llm-infer cells are represented as Kotoba source with explicit :llm-infer capability"
+     :inference/replay "dependency and grant checks are evaluated before marking a run clean"}
     :lab/cells
     [{:cell/id "c-001"
       :cell/kind :query

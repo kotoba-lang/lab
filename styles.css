@@ -92,7 +92,8 @@ h2 {
 
 .top-actions,
 .segmented,
-.tabs {
+.tabs,
+.block-toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -101,7 +102,9 @@ h2 {
 
 .top-actions a,
 .segmented button,
-.tab {
+.tab,
+.block-toolbar button,
+#assistant-generate {
   min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -113,7 +116,9 @@ h2 {
 
 .segmented button:hover,
 .tab:hover,
-.top-actions a:hover {
+.top-actions a:hover,
+.block-toolbar button:hover,
+#assistant-generate:hover {
   border-color: var(--teal);
   text-decoration: none;
 }
@@ -191,6 +196,16 @@ dd {
   gap: 8px;
 }
 
+.block-toolbar {
+  margin-bottom: 12px;
+}
+
+.block-toolbar button {
+  flex: 1 1 76px;
+  min-width: 0;
+  padding: 7px 8px;
+}
+
 .cell-button {
   width: 100%;
   min-height: 64px;
@@ -261,7 +276,7 @@ dd {
 
 .editor-panel {
   display: grid;
-  grid-template-rows: auto auto minmax(260px, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(280px, 1fr) auto auto auto;
   min-height: calc(100vh - 101px);
 }
 
@@ -272,7 +287,8 @@ dd {
   gap: 14px;
 }
 
-.source-view {
+.source-editor {
+  width: 100%;
   min-height: 260px;
   max-height: 54vh;
   overflow: auto;
@@ -285,7 +301,7 @@ dd {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 13px;
   line-height: 1.55;
-  white-space: pre-wrap;
+  resize: vertical;
 }
 
 .policy-strip {
@@ -323,6 +339,38 @@ dd {
 .result-band strong {
   text-align: right;
   overflow-wrap: anywhere;
+}
+
+.inference-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.inference-card,
+.assistant-card,
+.prompt-row,
+.assistant-output {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcf8;
+  padding: 10px;
+}
+
+.inference-card strong,
+.assistant-card strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.inference-card span,
+.assistant-card span,
+.assistant-output {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .evidence-panel {
@@ -376,6 +424,25 @@ dd {
   font-size: 12px;
 }
 
+.prompt-row {
+  display: grid;
+  gap: 8px;
+}
+
+#assistant-prompt {
+  width: 100%;
+  min-height: 88px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 9px;
+  resize: vertical;
+  font: inherit;
+}
+
+#assistant-generate {
+  justify-self: start;
+}
+
 @media (max-width: 980px) {
   .workspace {
     grid-template-columns: 1fr;
@@ -390,9 +457,15 @@ dd {
 @media (max-width: 620px) {
   .topbar,
   .editor-title-row,
-  .result-band {
+  .result-band,
+  .inference-strip {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .inference-strip {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .top-actions,

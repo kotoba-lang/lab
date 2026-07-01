@@ -168,10 +168,72 @@ function statusClass(status) {
   return `status-${keywordText(status)}`;
 }
 
+function makeKeyword(value) {
+  return { [keyword]: true, value };
+}
+
 function selectedCell() {
   return state.data["lab/notebook"]["lab/cells"].find(
     (cell) => cell["cell/id"] === state.selectedCellId,
   );
+}
+
+function inferCell(cell) {
+  const source = cell["cell/source"] || "";
+  const kind = keywordText(cell["cell/kind"]);
+  const inferred = new Set();
+  if (/kqe-query|:query/.test(source) || kind === "query") inferred.add("graph-read");
+  if (/kqe-assert!|kqe-retract!/.test(source)) inferred.add("graph-write");
+  if (/llm-infer|summarize|claim|assistant/i.test(source) || kind === "llm") {
+    inferred.add("llm-infer");
+  }
+  if (/table|artifact|rows|arrow|csv/i.test(source) || ["table", "viz", "kotoba"].includes(kind)) {
+    inferred.add("artifact-read");
+  }
+  if (/select|group-by|mark|plot|figure|normalize|artifact-write/i.test(source) || ["table", "viz"].includes(kind)) {
+    inferred.add("artifact-write");
+  }
+  const policy = new Set((cell["cell/policy"] || []).map(keywordText));
+  const missing = [...inferred].filter((capability) => !policy.has(capability));
+  const unused = [...policy].filter((capability) => !inferred.has(capability));
+  const deps = cell["cell/depends-on"] || [];
+  const allCells = state.data["lab/notebook"]["lab/cells"];
+  const blocked = deps.filter((dep) => {
+    const depCell = allCells.find((item) => item["cell/id"] === dep);
+    return !depCell || keywordText(depCell["cell/status"]) !== "succeeded";
+  });
+  const replay = missing.length === 0 && blocked.length === 0 ? "clean" : "needs review";
+  return {
+    inferred: [...inferred],
+    missing,
+    unused,
+    blocked,
+    replay,
+  };
+}
+
+function llmDraft(prompt, baseCell) {
+  const title = prompt.trim() || "Summarize degradation evidence";
+  const dependency = baseCell?.["cell/id"] || "c-003";
+  return {
+    "cell/id": nextCellId(),
+    "cell/kind": makeKeyword("kotoba"),
+    "cell/title": `LLM: ${title.slice(0, 42)}`,
+    "cell/status": makeKeyword("ready"),
+    "cell/policy": [makeKeyword("artifact-read"), makeKeyword("llm-infer"), makeKeyword("artifact-write")],
+    "cell/source": `(defn infer-claim [evidence]\n  (llm-infer "kotoba-research-assistant"\n    {:task "${title.replaceAll('"', '\\"')}"\n     :evidence evidence\n     :output :claim-with-citations}))`,
+    "cell/depends-on": [dependency],
+    "cell/output": "LLM draft cell generated; run to materialize artifact",
+  };
+}
+
+function nextCellId() {
+  const cells = state.data["lab/notebook"]["lab/cells"];
+  const max = cells.reduce((acc, cell) => {
+    const n = Number(String(cell["cell/id"]).replace(/\D/g, ""));
+    return Number.isFinite(n) ? Math.max(acc, n) : acc;
+  }, 0);
+  return `c-${String(max + 1).padStart(3, "0")}`;
 }
 
 function render() {
@@ -191,6 +253,7 @@ function render() {
   renderSelectedCell();
   renderArtifacts(notebook["lab/artifacts"]);
   renderEvidence(notebook["lab/evidence"]);
+  renderAssistant();
 }
 
 function renderCells(cells) {
@@ -226,10 +289,11 @@ function renderCells(cells) {
 
 function renderSelectedCell() {
   const cell = selectedCell();
+  const inference = inferCell(cell);
   text("selected-kind", keywordText(cell["cell/kind"]));
   text("selected-status", keywordText(cell["cell/status"]));
   text("selected-title", cell["cell/title"]);
-  text("source-view", cell["cell/source"]);
+  document.getElementById("source-editor").value = cell["cell/source"];
   text("cell-output", cell["cell/output"]);
 
   const strip = document.getElementById("policy-strip");
@@ -240,6 +304,7 @@ function renderSelectedCell() {
     chip.className = "policy-chip";
     chip.textContent = "no runtime capability";
     strip.appendChild(chip);
+    renderInference(inference);
     return;
   }
   policy.forEach((cap) => {
@@ -247,6 +312,23 @@ function renderSelectedCell() {
     chip.className = "policy-chip";
     chip.textContent = keywordText(cap);
     strip.appendChild(chip);
+  });
+  renderInference(inference);
+}
+
+function renderInference(inference) {
+  const panel = document.getElementById("cell-inference");
+  panel.innerHTML = "";
+  const rows = [
+    ["Inferred policy", inference.inferred.length ? inference.inferred.join(", ") : "none"],
+    ["Missing grants", inference.missing.length ? inference.missing.join(", ") : "none"],
+    ["Replay", inference.blocked.length ? `blocked by ${inference.blocked.join(", ")}` : inference.replay],
+  ];
+  rows.forEach(([label, value]) => {
+    const card = document.createElement("div");
+    card.className = "inference-card";
+    card.innerHTML = `<strong>${label}</strong><span>${value}</span>`;
+    panel.appendChild(card);
   });
 }
 
@@ -281,6 +363,50 @@ function renderEvidence(evidence) {
   });
 }
 
+function renderAssistant() {
+  const cell = selectedCell();
+  const inference = inferCell(cell);
+  const summary = [
+    `${cell["cell/id"]} / ${keywordText(cell["cell/kind"])}`,
+    `inferred: ${inference.inferred.join(", ") || "none"}`,
+    `missing: ${inference.missing.join(", ") || "none"}`,
+    `replay: ${inference.replay}`,
+  ].join(" | ");
+  text("assistant-summary", summary);
+}
+
+function addBlock(kind) {
+  const cells = state.data["lab/notebook"]["lab/cells"];
+  const current = selectedCell();
+  let cell;
+  if (kind === "llm") {
+    cell = llmDraft("Explain the strongest supported research claim", current);
+  } else {
+    const id = nextCellId();
+    cell = {
+      "cell/id": id,
+      "cell/kind": makeKeyword(kind),
+      "cell/title": kind === "markdown" ? "New note" : "New Kotoba cell",
+      "cell/status": makeKeyword("draft"),
+      "cell/policy": kind === "kotoba" ? [makeKeyword("artifact-read")] : [],
+      "cell/source": kind === "markdown" ? "Write observation here." : "(defn analyze [input]\n  input)",
+      "cell/depends-on": current ? [current["cell/id"]] : [],
+      "cell/output": "not run",
+    };
+  }
+  cells.push(cell);
+  state.selectedCellId = cell["cell/id"];
+  render();
+}
+
+function applyEditorSource() {
+  const cell = selectedCell();
+  cell["cell/source"] = document.getElementById("source-editor").value;
+  const inference = inferCell(cell);
+  renderInference(inference);
+  renderAssistant();
+}
+
 function setupInteractions() {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -294,22 +420,56 @@ function setupInteractions() {
       document
         .getElementById("evidence-tab")
         .classList.toggle("is-hidden", active !== "evidence");
+      document
+        .getElementById("assistant-tab")
+        .classList.toggle("is-hidden", active !== "assistant");
     });
   });
 
+  document.querySelectorAll("[data-add-block]").forEach((button) => {
+    button.addEventListener("click", () => addBlock(button.dataset.addBlock));
+  });
+
+  document.getElementById("source-editor").addEventListener("input", applyEditorSource);
+
   document.getElementById("run-button").addEventListener("click", () => {
     const cell = selectedCell();
+    applyEditorSource();
+    const inference = inferCell(cell);
     cell["cell/status"] = { [keyword]: true, value: "succeeded" };
-    cell["cell/output"] = `run complete / ${new Date().toISOString()}`;
+    cell["cell/output"] =
+      inference.missing.length > 0
+        ? `policy review required: ${inference.missing.join(", ")}`
+        : `kotoba run complete / ${new Date().toISOString()}`;
     render();
   });
 
   document.getElementById("replay-button").addEventListener("click", () => {
-    text("cell-output", "replay clean / inputs and wasm cid unchanged");
+    const inference = inferCell(selectedCell());
+    text(
+      "cell-output",
+      inference.blocked.length
+        ? `replay blocked by ${inference.blocked.join(", ")}`
+        : "replay clean / inputs and wasm cid unchanged",
+    );
+  });
+
+  document.getElementById("infer-button").addEventListener("click", () => {
+    applyEditorSource();
+    document.querySelector('[data-tab="assistant"]').click();
   });
 
   document.getElementById("evidence-button").addEventListener("click", () => {
     document.querySelector('[data-tab="evidence"]').click();
+  });
+
+  document.getElementById("assistant-generate").addEventListener("click", () => {
+    const prompt = document.getElementById("assistant-prompt").value;
+    const cell = llmDraft(prompt, selectedCell());
+    state.data["lab/notebook"]["lab/cells"].push(cell);
+    state.selectedCellId = cell["cell/id"];
+    text("assistant-output", `Generated ${cell["cell/id"]} with llm-infer capability.`);
+    render();
   });
 }
 
@@ -323,7 +483,7 @@ async function boot() {
     render();
   } catch (error) {
     text("notebook-title", "Failed to load lab.kotoba");
-    text("source-view", error.stack || String(error));
+    document.getElementById("source-editor").value = error.stack || String(error);
   }
 }
 

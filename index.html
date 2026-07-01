@@ -44,6 +44,11 @@
               <dd id="runtime">-</dd>
             </div>
           </dl>
+          <div class="block-toolbar" aria-label="Add notebook blocks">
+            <button type="button" data-add-block="kotoba">+ Kotoba</button>
+            <button type="button" data-add-block="markdown">+ Note</button>
+            <button type="button" data-add-block="llm">+ LLM</button>
+          </div>
           <div id="cell-list" class="cell-list"></div>
         </aside>
 
@@ -57,15 +62,22 @@
             <div class="segmented" aria-label="Cell commands">
               <button id="run-button" type="button">Run</button>
               <button id="replay-button" type="button">Replay</button>
+              <button id="infer-button" type="button">Infer</button>
               <button id="evidence-button" type="button">Evidence</button>
             </div>
           </div>
-          <pre id="source-view" class="source-view"></pre>
+          <textarea
+            id="source-editor"
+            class="source-editor"
+            spellcheck="false"
+            aria-label="Cell source editor"
+          ></textarea>
           <div class="policy-strip" id="policy-strip"></div>
           <div class="result-band">
             <span>Result</span>
             <strong id="cell-output">-</strong>
           </div>
+          <div class="inference-strip" id="cell-inference"></div>
         </section>
 
         <aside class="panel evidence-panel" aria-label="Evidence and artifacts">
@@ -76,9 +88,27 @@
             <button class="tab" type="button" data-tab="evidence">
               Evidence
             </button>
+            <button class="tab" type="button" data-tab="assistant">
+              Assistant
+            </button>
           </div>
           <div id="artifacts-tab" class="tab-panel"></div>
           <div id="evidence-tab" class="tab-panel is-hidden"></div>
+          <div id="assistant-tab" class="tab-panel is-hidden">
+            <div class="assistant-card">
+              <strong>Kotoba inference</strong>
+              <span id="assistant-summary">Select a cell to infer policy and replay state.</span>
+            </div>
+            <div class="prompt-row">
+              <textarea
+                id="assistant-prompt"
+                aria-label="LLM prompt"
+                placeholder="Ask for a Kotoba analysis cell..."
+              ></textarea>
+              <button id="assistant-generate" type="button">Generate cell</button>
+            </div>
+            <div id="assistant-output" class="assistant-output"></div>
+          </div>
         </aside>
       </main>
     </div>
