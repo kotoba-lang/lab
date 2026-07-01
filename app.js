@@ -217,7 +217,7 @@ function environmentLockStatus() {
   const schemaOk = lock["env/schema"] === "kotoba-lab-notebook/v1";
   const verificationOk = lock["env/verification-contract"] === "src/kotoba/lab/verification.cljc";
   const verificationCheckOk = lock["env/verification-check"] === "src/kotoba/lab/verification_check.cljc";
-  const runnerOk = lock["env/browser-runner"] === "scripts/verify-lab.mjs";
+  const runnerOk = lock["env/browser-runner"] === "scripts/verify-lab.js";
   const locked = runtimeOk && providerOk && schemaOk && verificationOk && verificationCheckOk && runnerOk;
   return {
     lock,
