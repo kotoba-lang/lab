@@ -28,11 +28,16 @@
      {:adapter/id :local-deterministic
       :adapter/status :active
       :adapter/contract "browser-local deterministic fallback with source/policy/wasm/output CIDs"}]
+    :lab/llm-providers
+    [{:provider/id :kotoba-research-assistant
+      :provider/status :shim-active
+      :provider/capability :llm-infer
+      :provider/contract "llm-infer cell -> provider adapter -> deterministic draft artifact -> evidence"}]
     :lab/maturity
     {:maturity/current :m3
      :maturity/target :m4
      :maturity/coverage "computed in browser from cells, artifacts, run evidence, runtime adapter readiness, and persistence support"
-     :maturity/next "replace runtime-shim.js with real kotoba-wasm safe-build/runtime and real LLM provider adapter"}
+     :maturity/next "replace runtime-shim.js and llm-provider-shim.js with real kotoba-wasm safe-build/runtime and provider adapters"}
     :lab/cells
     [{:cell/id "c-001"
       :cell/kind :query

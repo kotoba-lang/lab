@@ -440,6 +440,15 @@ function materializeOutput(cell, inference) {
   };
 }
 
+function runLlmProvider(cell, notebook) {
+  if (!cell["cell/source"]?.includes("llm-infer") || !window.KotobaLLMProvider) return null;
+  return window.KotobaLLMProvider.infer({
+    cell,
+    evidence: notebook["lab/evidence"],
+    budget: { maxTokens: 512, maxCostUsd: 0, mode: "deterministic-shim" },
+  });
+}
+
 function runSelectedCell() {
   const notebook = state.data["lab/notebook"];
   const cell = selectedCell();
@@ -447,6 +456,12 @@ function runSelectedCell() {
   const adapter = selectRuntimeAdapter();
   const inference = inferCell(cell);
   const result = materializeOutput(cell, inference);
+  const llmResult = runLlmProvider(cell, notebook);
+  if (llmResult) {
+    result.output = llmResult.text;
+    result.mediaType = "text/markdown";
+    result.artifactKind = makeKeyword("model");
+  }
   const policy = (cell["cell/policy"] || []).map(keywordText);
   const compiled =
     adapter.id === "kotoba-wasm-safe" && window.KotobaWasmRuntime
@@ -507,6 +522,11 @@ function runSelectedCell() {
     "evidence/runtime-status": adapter.status,
     "evidence/runtime-version": window.KotobaWasmRuntime?.version || "fallback",
     "evidence/runtime-diagnostics": compiled.diagnostics,
+    "evidence/llm-provider": llmResult ? window.KotobaLLMProvider.id : "none",
+    "evidence/llm-provider-version": llmResult ? window.KotobaLLMProvider.version : "none",
+    "evidence/llm-budget": llmResult ? JSON.stringify(llmResult.budget) : "{}",
+    "evidence/llm-claim-id": llmResult ? llmResult.claimId : "none",
+    "evidence/llm-diagnostics": llmResult ? llmResult.diagnostics : [],
     "evidence/host": adapter.label,
   };
   saveNotebook();
@@ -520,6 +540,7 @@ function maturityReport() {
   const withEvidence = cells.filter((cell) => cell["cell/source-cid"] && cell["cell/wasm-cid"]).length;
   const executable = cells.filter((cell) => keywordText(cell["cell/kind"]) !== "markdown").length;
   const llmCells = cells.filter((cell) => /llm-infer/.test(cell["cell/source"] || "")).length;
+  const llmCoverage = window.KotobaLLMProvider ? (llmCells ? 68 : 58) : llmCells ? 45 : 40;
   const persistenceCoverage = state.storageAvailable ? 42 : 15;
   const runtimeCoverage = Math.max(...runtimeAdapters().map((adapter) => adapter.coverage));
   const coverage = [
@@ -542,7 +563,13 @@ function maturityReport() {
       40 + (cells.length ? Math.round((withEvidence / cells.length) * 20) : 0),
       "run updates source/policy/wasm/output CIDs",
     ],
-    ["LLM workflow", llmCells ? 45 : 40, "llm-infer source generation, no provider call"],
+    [
+      "LLM workflow",
+      llmCoverage,
+      window.KotobaLLMProvider
+        ? "capability-gated provider shim generates deterministic drafts"
+        : "llm-infer source generation, no provider call",
+    ],
     [
       "Persistence",
       state.storageAvailable ? 55 : persistenceCoverage,
