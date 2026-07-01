@@ -184,8 +184,8 @@ function runtimeAdapters() {
     {
       id: "kotoba-wasm-safe",
       label: "Kotoba Wasm safe-build",
-      status: window.KotobaWasmRuntime ? "available" : "not-loaded",
-      coverage: window.KotobaWasmRuntime ? 75 : 45,
+      status: window.KotobaWasmRuntime?.status || "not-loaded",
+      coverage: window.KotobaWasmRuntime ? 82 : 45,
       description: "Production adapter target: source -> safe-build -> Wasm runtime -> artifact evidence.",
     },
     {
@@ -203,6 +203,12 @@ function selectRuntimeAdapter() {
   const preferred = adapters.find((adapter) => adapter.id === state.runtime.preferred);
   if (preferred?.status === "available") {
     state.runtime.active = preferred.id;
+    state.runtime.diagnostics.unshift({
+      at: new Date().toISOString(),
+      level: "ok",
+      message: `${preferred.label} available through window.KotobaWasmRuntime.`,
+    });
+    state.runtime.diagnostics = state.runtime.diagnostics.slice(0, 8);
     return preferred;
   }
   const fallback = adapters.find((adapter) => adapter.id === "local-deterministic");
@@ -440,11 +446,29 @@ function runSelectedCell() {
   applyEditorSource();
   const adapter = selectRuntimeAdapter();
   const inference = inferCell(cell);
-  const sourceCid = cidFor("source", cell["cell/source"]);
-  const policyCid = cidFor("policy", JSON.stringify((cell["cell/policy"] || []).map(keywordText)));
-  const wasmCid = cidFor("wasm", `${cell["cell/id"]}:${cell["cell/source"]}:${policyCid}`);
   const result = materializeOutput(cell, inference);
-  const outputCid = cidFor("artifact", `${cell["cell/id"]}:${cell["cell/source"]}:${result.output}`);
+  const policy = (cell["cell/policy"] || []).map(keywordText);
+  const compiled =
+    adapter.id === "kotoba-wasm-safe" && window.KotobaWasmRuntime
+      ? window.KotobaWasmRuntime.compile({ cell, policy })
+      : {
+          sourceCid: cidFor("source", cell["cell/source"]),
+          policyCid: cidFor("policy", JSON.stringify(policy)),
+          wasmCid: cidFor("wasm", `${cell["cell/id"]}:${cell["cell/source"]}:${JSON.stringify(policy)}`),
+          diagnostics: ["local fallback compile"],
+        };
+  const run =
+    adapter.id === "kotoba-wasm-safe" && window.KotobaWasmRuntime
+      ? window.KotobaWasmRuntime.run({ cell, compiled, output: result.output })
+      : {
+          outputCid: cidFor("artifact", `${cell["cell/id"]}:${cell["cell/source"]}:${result.output}`),
+          timingMs: 24 + cell["cell/source"].length,
+          status: keywordText(result.status),
+        };
+  const sourceCid = compiled.sourceCid;
+  const policyCid = compiled.policyCid;
+  const wasmCid = compiled.wasmCid;
+  const outputCid = run.outputCid;
   const runId = nowRunId();
 
   cell["cell/status"] = result.status;
@@ -478,9 +502,11 @@ function runSelectedCell() {
     "evidence/output-cids": [outputCid],
     "evidence/capabilities-used": inference.inferred.map(makeKeyword),
     "evidence/replay": inference.replay,
-    "evidence/timing-ms": 24 + cell["cell/source"].length,
+    "evidence/timing-ms": run.timingMs,
     "evidence/runtime-adapter": adapter.id,
     "evidence/runtime-status": adapter.status,
+    "evidence/runtime-version": window.KotobaWasmRuntime?.version || "fallback",
+    "evidence/runtime-diagnostics": compiled.diagnostics,
     "evidence/host": adapter.label,
   };
   saveNotebook();
@@ -508,7 +534,7 @@ function maturityReport() {
       "Runtime adapter",
       runtimeCoverage,
       state.runtime.active === "kotoba-wasm-safe"
-        ? "kotoba-wasm runtime available"
+        ? "kotoba-wasm adapter shim available"
         : "adapter boundary ready; local fallback active",
     ],
     [

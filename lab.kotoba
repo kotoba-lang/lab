@@ -23,8 +23,8 @@
      :inference/replay "dependency and grant checks are evaluated before marking a run clean"}
     :lab/runtime-adapters
     [{:adapter/id :kotoba-wasm-safe
-      :adapter/status :planned
-      :adapter/contract "source -> safe-build -> Wasm runtime -> artifact evidence"}
+      :adapter/status :shim-active
+      :adapter/contract "source -> safe-build-compatible compile API -> runtime API -> artifact evidence"}
      {:adapter/id :local-deterministic
       :adapter/status :active
       :adapter/contract "browser-local deterministic fallback with source/policy/wasm/output CIDs"}]
@@ -32,7 +32,7 @@
     {:maturity/current :m3
      :maturity/target :m4
      :maturity/coverage "computed in browser from cells, artifacts, run evidence, runtime adapter readiness, and persistence support"
-     :maturity/next "replace browser-local runner with kotoba-wasm safe-build/runtime adapter and real LLM provider adapter"}
+     :maturity/next "replace runtime-shim.js with real kotoba-wasm safe-build/runtime and real LLM provider adapter"}
     :lab/cells
     [{:cell/id "c-001"
       :cell/kind :query
