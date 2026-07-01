@@ -3,6 +3,11 @@ const state = {
   selectedCellId: null,
   storageAvailable: false,
   storageKey: "kotoba-lab:notebook:v1",
+  runtime: {
+    preferred: "kotoba-wasm-safe",
+    active: "local-deterministic",
+    diagnostics: [],
+  },
 };
 
 const keyword = Symbol("keyword");
@@ -174,6 +179,43 @@ function makeKeyword(value) {
   return { [keyword]: true, value };
 }
 
+function runtimeAdapters() {
+  return [
+    {
+      id: "kotoba-wasm-safe",
+      label: "Kotoba Wasm safe-build",
+      status: window.KotobaWasmRuntime ? "available" : "not-loaded",
+      coverage: window.KotobaWasmRuntime ? 75 : 45,
+      description: "Production adapter target: source -> safe-build -> Wasm runtime -> artifact evidence.",
+    },
+    {
+      id: "local-deterministic",
+      label: "Browser-local deterministic runner",
+      status: "available",
+      coverage: 60,
+      description: "Current fallback adapter: deterministic output/evidence without real Wasm execution.",
+    },
+  ];
+}
+
+function selectRuntimeAdapter() {
+  const adapters = runtimeAdapters();
+  const preferred = adapters.find((adapter) => adapter.id === state.runtime.preferred);
+  if (preferred?.status === "available") {
+    state.runtime.active = preferred.id;
+    return preferred;
+  }
+  const fallback = adapters.find((adapter) => adapter.id === "local-deterministic");
+  state.runtime.active = fallback.id;
+  state.runtime.diagnostics.unshift({
+    at: new Date().toISOString(),
+    level: "info",
+    message: `${preferred?.label || "preferred runtime"} unavailable; using ${fallback.label}.`,
+  });
+  state.runtime.diagnostics = state.runtime.diagnostics.slice(0, 8);
+  return fallback;
+}
+
 function encodeForStorage(value) {
   if (Array.isArray(value)) return value.map(encodeForStorage);
   if (value && typeof value === "object") {
@@ -200,6 +242,7 @@ function storagePayload() {
   return {
     savedAt: new Date().toISOString(),
     selectedCellId: state.selectedCellId,
+    runtime: state.runtime,
     data: encodeForStorage(state.data),
   };
 }
@@ -218,6 +261,7 @@ function loadSavedNotebook() {
   return {
     data: decodeFromStorage(payload.data),
     selectedCellId: payload.selectedCellId,
+    runtime: payload.runtime,
     savedAt: payload.savedAt,
   };
 }
@@ -242,6 +286,7 @@ function downloadNotebook() {
 
 function restoreNotebookPayload(payload) {
   state.data = decodeFromStorage(payload.data || payload);
+  if (payload.runtime) state.runtime = payload.runtime;
   state.selectedCellId = payload.selectedCellId || state.data["lab/notebook"]["lab/cells"][0]?.["cell/id"];
   saveNotebook();
   render();
@@ -393,6 +438,7 @@ function runSelectedCell() {
   const notebook = state.data["lab/notebook"];
   const cell = selectedCell();
   applyEditorSource();
+  const adapter = selectRuntimeAdapter();
   const inference = inferCell(cell);
   const sourceCid = cidFor("source", cell["cell/source"]);
   const policyCid = cidFor("policy", JSON.stringify((cell["cell/policy"] || []).map(keywordText)));
@@ -406,6 +452,7 @@ function runSelectedCell() {
   cell["cell/source-cid"] = sourceCid;
   cell["cell/wasm-cid"] = wasmCid;
   cell["cell/output-cids"] = [outputCid];
+  cell["cell/runtime-adapter"] = adapter.id;
 
   const artifactName = `${cell["cell/id"]}-${keywordText(cell["cell/kind"])}-output`;
   const artifacts = notebook["lab/artifacts"];
@@ -421,6 +468,7 @@ function runSelectedCell() {
   else artifacts.push(artifact);
 
   notebook["lab/run-id"] = runId;
+  notebook["lab/active-runtime"] = adapter.id;
   notebook["lab/replay-status"] = keywordText(result.status) === "succeeded" ? "replayable" : "needs review";
   notebook["lab/evidence"] = {
     "evidence/source-cid": sourceCid,
@@ -431,7 +479,9 @@ function runSelectedCell() {
     "evidence/capabilities-used": inference.inferred.map(makeKeyword),
     "evidence/replay": inference.replay,
     "evidence/timing-ms": 24 + cell["cell/source"].length,
-    "evidence/host": "browser-local kotoba runner",
+    "evidence/runtime-adapter": adapter.id,
+    "evidence/runtime-status": adapter.status,
+    "evidence/host": adapter.label,
   };
   saveNotebook();
 }
@@ -445,6 +495,7 @@ function maturityReport() {
   const executable = cells.filter((cell) => keywordText(cell["cell/kind"]) !== "markdown").length;
   const llmCells = cells.filter((cell) => /llm-infer/.test(cell["cell/source"] || "")).length;
   const persistenceCoverage = state.storageAvailable ? 42 : 15;
+  const runtimeCoverage = Math.max(...runtimeAdapters().map((adapter) => adapter.coverage));
   const coverage = [
     ["Notebook UI", 65, "editable cells, block insert, toolbar, inspector"],
     ["Manifest contract", 70, "lab.kotoba drives page state"],
@@ -452,6 +503,13 @@ function maturityReport() {
       "Local execution",
       executable ? 35 + Math.round((succeeded / executable) * 20) : 35,
       "browser-local runner materializes deterministic outputs",
+    ],
+    [
+      "Runtime adapter",
+      runtimeCoverage,
+      state.runtime.active === "kotoba-wasm-safe"
+        ? "kotoba-wasm runtime available"
+        : "adapter boundary ready; local fallback active",
     ],
     [
       "Evidence",
@@ -491,6 +549,7 @@ function render() {
   renderArtifacts(notebook["lab/artifacts"]);
   renderEvidence(notebook["lab/evidence"]);
   renderAssistant();
+  renderRuntime();
   renderMaturity();
 }
 
@@ -613,6 +672,35 @@ function renderAssistant() {
   text("assistant-summary", summary);
 }
 
+function renderRuntime() {
+  const panel = document.getElementById("runtime-tab");
+  const adapters = runtimeAdapters();
+  panel.innerHTML = `
+    <div class="assistant-card">
+      <strong>Active: ${state.runtime.active}</strong>
+      <span>Preferred adapter is ${state.runtime.preferred}. Production coverage increases when KotobaWasmRuntime is loaded.</span>
+    </div>
+  `;
+  adapters.forEach((adapter) => {
+    const row = document.createElement("div");
+    row.className = "runtime-row";
+    row.innerHTML = `
+      <div>
+        <strong>${adapter.label}</strong>
+        <span>${adapter.description}</span>
+      </div>
+      <code>${adapter.status}</code>
+    `;
+    panel.appendChild(row);
+  });
+  state.runtime.diagnostics.forEach((diagnostic) => {
+    const row = document.createElement("div");
+    row.className = "evidence-row";
+    row.innerHTML = `<strong>${diagnostic.level} / ${diagnostic.at}</strong><code>${diagnostic.message}</code>`;
+    panel.appendChild(row);
+  });
+}
+
 function renderMaturity() {
   const panel = document.getElementById("maturity-tab");
   const report = maturityReport();
@@ -687,6 +775,9 @@ function setupInteractions() {
       document
         .getElementById("assistant-tab")
         .classList.toggle("is-hidden", active !== "assistant");
+      document
+        .getElementById("runtime-tab")
+        .classList.toggle("is-hidden", active !== "runtime");
       document
         .getElementById("maturity-tab")
         .classList.toggle("is-hidden", active !== "maturity");
@@ -777,6 +868,7 @@ async function boot() {
     if (saved?.data) {
       state.data = saved.data;
       state.selectedCellId = saved.selectedCellId;
+      if (saved.runtime) state.runtime = saved.runtime;
     } else {
       state.data = new EdnParser(edn).parse();
     }

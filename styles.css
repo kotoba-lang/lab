@@ -403,6 +403,36 @@ dd {
   padding: 10px;
 }
 
+.runtime-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  padding: 10px;
+}
+
+.runtime-row strong,
+.runtime-row span {
+  display: block;
+}
+
+.runtime-row span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.runtime-row code {
+  border-radius: 999px;
+  background: rgba(118, 118, 128, 0.12);
+  color: var(--muted);
+  padding: 4px 7px;
+  font-size: 12px;
+}
+
 .coverage-row strong,
 .coverage-row span {
   display: block;
@@ -557,6 +587,10 @@ dd {
   }
 
   .coverage-row {
+    grid-template-columns: 1fr;
+  }
+
+  .runtime-row {
     grid-template-columns: 1fr;
   }
 
