@@ -481,10 +481,9 @@ function runLlmProvider(cell, notebook) {
   });
 }
 
-function runSelectedCell() {
+function runCell(cell, options = {}) {
   const notebook = state.data["lab/notebook"];
-  const cell = selectedCell();
-  applyEditorSource();
+  if (options.syncEditor) applyEditorSource();
   const adapter = selectRuntimeAdapter();
   const inference = inferCell(cell);
   const result = materializeOutput(cell, inference);
@@ -578,6 +577,26 @@ function runSelectedCell() {
     "evidence/host": adapter.label,
   };
   saveNotebook();
+  return { cell, result, inference };
+}
+
+function runSelectedCell() {
+  return runCell(selectedCell(), { syncEditor: true });
+}
+
+function runAllCells() {
+  applyEditorSource();
+  const notebook = state.data["lab/notebook"];
+  const cells = notebook["lab/cells"];
+  const executable = cells.filter((cell) => keywordText(cell["cell/kind"]) !== "markdown");
+  const results = executable.map((cell) => runCell(cell));
+  const failed = results.filter(({ result }) => keywordText(result.status) !== "succeeded");
+  notebook["lab/replay-status"] = failed.length ? "needs review" : "replayable";
+  notebook["lab/replay-fingerprint"] = replayFingerprint(notebook);
+  notebook["lab/evidence"]["evidence/replay-fingerprint"] = notebook["lab/replay-fingerprint"];
+  notebook["lab/evidence"]["evidence/run-all-count"] = executable.length;
+  saveNotebook();
+  return { ran: executable.length, failed: failed.length };
 }
 
 function maturityReport() {
@@ -590,12 +609,13 @@ function maturityReport() {
   const executable = cells.filter((cell) => keywordText(cell["cell/kind"]) !== "markdown").length;
   const llmCells = cells.filter((cell) => /llm-infer/.test(cell["cell/source"] || "")).length;
   const llmCoverage = window.KotobaLLMProvider ? (llmCells ? 68 : 58) : llmCells ? 45 : 40;
+  const allExecutableSucceeded = executable > 0 && succeeded >= executable;
   const completeRuns = runs.filter(
     (run) => run["run/source-cid"] && run["run/wasm-cid"] && run["run/output-cid"],
   ).length;
   const persistenceCoverage = state.storageAvailable ? 70 : 15;
   const runtimeCoverage = Math.max(...runtimeAdapters().map((adapter) => adapter.coverage));
-  const verificationCoverage = state.storageAvailable && window.KotobaLLMProvider ? 72 : 35;
+  const verificationCoverage = state.storageAvailable && window.KotobaLLMProvider ? (allExecutableSucceeded ? 76 : 72) : 35;
   const evidenceCoverage = Math.min(
     76,
     44 +
@@ -609,8 +629,8 @@ function maturityReport() {
     ["Manifest contract", 75, "lab.kotoba drives page state, providers, verification, and run history"],
     [
       "Local execution",
-      executable ? 35 + Math.round((succeeded / executable) * 20) : 35,
-      "browser-local runner materializes deterministic outputs",
+      executable ? 38 + Math.round((succeeded / executable) * 27) : 35,
+      "Run all executes non-note cells in dependency order with deterministic outputs",
     ],
     [
       "Runtime adapter",
@@ -640,8 +660,8 @@ function maturityReport() {
     ],
     [
       "Replay ledger",
-      replayCoverage,
-      "bounded run history records cell, runtime, provider, CIDs, timing, and replay status",
+      allExecutableSucceeded ? Math.max(replayCoverage, 82) : replayCoverage,
+      "bounded run history records cell, runtime, provider, CIDs, timing, replay status, and run-all coverage",
     ],
     [
       "Verification",
@@ -942,6 +962,18 @@ function setupInteractions() {
   });
 
   document.getElementById("toolbar-run").addEventListener("click", () => {
+    const summary = runAllCells();
+    render();
+    text(
+      "cell-output",
+      summary.failed
+        ? `run all completed with ${summary.failed} review item(s)`
+        : `run all completed: ${summary.ran} executable cells replayable`,
+    );
+    document.querySelector('[data-tab="maturity"]').click();
+  });
+
+  document.getElementById("toolbar-run-selected").addEventListener("click", () => {
     runSelectedCell();
     render();
   });

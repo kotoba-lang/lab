@@ -56,7 +56,7 @@ try {
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: "networkidle" });
 
-  await page.click("#run-button");
+  await page.click("#toolbar-run");
   await page.click('[data-tab="runtime"]');
   const runtimeText = await page.locator("#runtime-tab").innerText();
   assert(runtimeText.includes("Active: kotoba-wasm-safe"), "runtime adapter did not activate");
@@ -67,7 +67,8 @@ try {
     "#source-editor",
     '(defn infer-claim [evidence]\n  (llm-infer "kotoba-research-assistant" {:task "explain heat degradation" :evidence evidence}))',
   );
-  await page.click("#run-button");
+  await page.click("#toolbar-run");
+  await page.locator(".cell-button").last().click();
   const output = await page.locator("#cell-output").innerText();
   assert(output.includes("Draft claim-"), "llm output was not materialized");
 
