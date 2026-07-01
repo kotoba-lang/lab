@@ -40,10 +40,14 @@ function assert(condition, message) {
 }
 
 const cljcContract = await readFile(join(root, "src/kotoba/lab/verification.cljc"), "utf8");
+const cljcCheck = await readFile(join(root, "src/kotoba/lab/verification_check.cljc"), "utf8");
 assert(cljcContract.includes("(ns kotoba.lab.verification)"), "CLJC verification namespace missing");
 assert(cljcContract.includes("maturity-ready?"), "CLJC maturity contract missing");
 assert(cljcContract.includes("review-snapshot-ready?"), "CLJC snapshot contract missing");
 assert(cljcContract.includes(":review-snapshot"), "CLJC review snapshot coverage missing");
+assert(cljcCheck.includes("(ns kotoba.lab.verification-check"), "CLJC verification check namespace missing");
+assert(cljcCheck.includes("required-contract-coverage"), "CLJC contract coverage check missing");
+assert(cljcCheck.includes(":accessibility"), "CLJC accessibility check missing");
 
 await new Promise((resolve) => server.listen(port, resolve));
 
@@ -62,6 +66,26 @@ try {
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: "networkidle" });
 
+  const namedControls = await page.locator("button, a, textarea, label").evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      text: node.textContent.trim(),
+      label: node.getAttribute("aria-label") || "",
+      hidden: node.offsetParent === null,
+    })),
+  );
+  assert(
+    namedControls.every((node) => node.hidden || node.text || node.label),
+    "interactive control missing accessible name",
+  );
+
+  const smallTargets = await page.locator("button, .import-label").evaluateAll((nodes) =>
+    nodes
+      .filter((node) => node.offsetParent !== null)
+      .map((node) => node.getBoundingClientRect())
+      .filter((box) => box.height < 40 || box.width < 40),
+  );
+  assert(smallTargets.length === 0, "interactive target below minimum size");
+
   await page.click("#toolbar-run");
   await page.click('[data-tab="runtime"]');
   const runtimeText = await page.locator("#runtime-tab").innerText();
@@ -72,6 +96,11 @@ try {
   assert(runtimeText.includes("shim-0.2.0"), "runtime lock version missing");
   assert(runtimeText.includes("shim-0.1.0"), "provider lock version missing");
   assert(runtimeText.includes("src/kotoba/lab/verification.cljc"), "CLJC verification contract missing");
+  assert(runtimeText.includes("src/kotoba/lab/verification_check.cljc"), "CLJC verification check missing");
+  assert(
+    (await page.locator('[data-tab="runtime"]').getAttribute("aria-selected")) === "true",
+    "runtime tab aria-selected did not update",
+  );
   await page.locator(".cell-button").nth(2).click();
   assert((await page.locator("#output-preview table").count()) === 1, "table rich output missing");
   await page.locator(".cell-button").nth(3).click();
@@ -115,9 +144,13 @@ try {
   assert(maturity.includes("Environment lock"), "environment lock coverage missing");
   assert(maturity.includes("Review snapshot"), "review snapshot coverage missing");
   assert(maturity.includes("Contract verification"), "contract verification coverage missing");
+  assert(maturity.includes("Accessibility"), "accessibility coverage missing");
 
   const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   assert(!overflowX, "page has horizontal overflow");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileOverflowX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  assert(!mobileOverflowX, "mobile page has horizontal overflow");
   assert(errors.length === 0, `console errors: ${errors.join(" | ")}`);
 
   console.log("ok verified kotoba-lab browser flow");

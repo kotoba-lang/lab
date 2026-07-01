@@ -216,8 +216,9 @@ function environmentLockStatus() {
     lock["env/llm-provider-version"] === window.KotobaLLMProvider?.version;
   const schemaOk = lock["env/schema"] === "kotoba-lab-notebook/v1";
   const verificationOk = lock["env/verification-contract"] === "src/kotoba/lab/verification.cljc";
+  const verificationCheckOk = lock["env/verification-check"] === "src/kotoba/lab/verification_check.cljc";
   const runnerOk = lock["env/browser-runner"] === "scripts/verify-lab.mjs";
-  const locked = runtimeOk && providerOk && schemaOk && verificationOk && runnerOk;
+  const locked = runtimeOk && providerOk && schemaOk && verificationOk && verificationCheckOk && runnerOk;
   return {
     lock,
     locked,
@@ -231,6 +232,7 @@ function environmentLockStatus() {
         providerOk,
       ],
       ["Verification contract", lock["env/verification-contract"] || "missing", verificationOk],
+      ["Verification check", lock["env/verification-check"] || "missing", verificationCheckOk],
       ["Browser runner", lock["env/browser-runner"] || "missing", runnerOk],
     ],
   };
@@ -696,6 +698,7 @@ function maturityReport() {
   );
   const replayCoverage = Math.min(78, completeRuns ? 66 + Math.min(12, completeRuns * 2) : 42);
   const richOutputCoverage = Math.min(82, richOutputs ? 58 + Math.min(24, richOutputs * 8) : 35);
+  const accessibilityCoverage = 78;
   const coverage = [
     ["Notebook UI", 72, "editable cells, block insert, toolbar, inspector, and run ledger"],
     ["Manifest contract", 75, "lab.kotoba drives page state, providers, verification, and run history"],
@@ -755,6 +758,11 @@ function maturityReport() {
       contractVerified
         ? "CLJC verification contract is checked by CI before browser replay"
         : "CLJC verification contract is not pinned",
+    ],
+    [
+      "Accessibility",
+      accessibilityCoverage,
+      "CI checks tab state, keyboard focus targets, labels, touch size, and responsive overflow",
     ],
     [
       "Replay ledger",
@@ -1103,7 +1111,9 @@ function setupInteractions() {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".tab").forEach((item) => {
-        item.classList.toggle("is-active", item === tab);
+        const activeItem = item === tab;
+        item.classList.toggle("is-active", activeItem);
+        item.setAttribute("aria-selected", String(activeItem));
       });
       const active = tab.dataset.tab;
       document

@@ -24,6 +24,7 @@
      :env/llm-provider "kotoba-research-assistant"
      :env/llm-provider-version "shim-0.1.0"
      :env/verification-contract "src/kotoba/lab/verification.cljc"
+     :env/verification-check "src/kotoba/lab/verification_check.cljc"
      :env/browser-runner "scripts/verify-lab.mjs"
      :env/status :locked}
     :lab/review-snapshot
@@ -52,13 +53,14 @@
     :lab/maturity
     {:maturity/current :m3
      :maturity/target :m4
-     :maturity/coverage "computed in browser from cells, artifacts, rich outputs, review snapshots, run-all evidence, runtime adapter readiness, environment lock, replay ledger, persistence support, and CI browser verification"
+     :maturity/coverage "computed in browser from cells, artifacts, rich outputs, review snapshots, run-all evidence, runtime adapter readiness, environment lock, replay ledger, persistence support, accessibility, and CI browser verification"
      :maturity/next "replace runtime-shim.js and llm-provider-shim.js with real kotoba-wasm safe-build/runtime and provider adapters"}
     :lab/verification
     {:verification/status :ci-active
      :verification/contract "src/kotoba/lab/verification.cljc"
+     :verification/check "src/kotoba/lab/verification_check.cljc"
      :verification/browser-runner "scripts/verify-lab.mjs"
-     :verification/coverage "runtime adapter, llm provider, environment lock, persistence, evidence, maturity, and layout overflow"}
+     :verification/coverage "runtime adapter, llm provider, environment lock, accessibility, persistence, evidence, maturity, and layout overflow"}
     :lab/cells
     [{:cell/id "c-001"
       :cell/kind :query

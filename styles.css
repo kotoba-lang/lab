@@ -112,13 +112,27 @@ h2 {
 #assistant-generate,
 .top-actions button,
 .import-label {
-  min-height: 34px;
+  min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
   color: var(--ink);
   padding: 7px 10px;
   cursor: pointer;
+}
+
+.top-actions a:focus-visible,
+.segmented button:focus-visible,
+.tab:focus-visible,
+.block-toolbar button:focus-visible,
+.cell-button:focus-visible,
+#assistant-generate:focus-visible,
+.top-actions button:focus-visible,
+.import-label:focus-visible,
+.source-editor:focus-visible,
+#assistant-prompt:focus-visible {
+  outline: 3px solid rgba(0, 122, 255, 0.24);
+  outline-offset: 2px;
 }
 
 #import-file {

@@ -21,6 +21,7 @@
    :persistence
    :review-snapshot
    :contract-verification
+   :accessibility
    :replay-ledger
    :browser-verification])
 
