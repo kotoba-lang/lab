@@ -1,20 +1,21 @@
 :root {
   color-scheme: light;
-  --bg: #f7f8f4;
+  --bg: #f2f2f7;
   --panel: #ffffff;
-  --ink: #20211f;
-  --muted: #646862;
-  --line: #d9ded5;
-  --teal: #0e6f68;
-  --teal-soft: #d9efeb;
-  --red: #b54635;
-  --red-soft: #f3ded9;
-  --gold: #8c6b12;
-  --gold-soft: #f0e5bd;
-  --green: #2f7040;
-  --green-soft: #d9ebdc;
-  --code: #111612;
-  --code-bg: #eef2ec;
+  --ink: #1d1d1f;
+  --muted: #6e6e73;
+  --line: rgba(60, 60, 67, 0.18);
+  --separator: rgba(60, 60, 67, 0.12);
+  --accent: #007aff;
+  --accent-soft: rgba(0, 122, 255, 0.12);
+  --red: #ff3b30;
+  --red-soft: rgba(255, 59, 48, 0.13);
+  --gold: #a66900;
+  --gold-soft: rgba(255, 204, 0, 0.22);
+  --green: #248a3d;
+  --green-soft: rgba(52, 199, 89, 0.16);
+  --code: #1d1d1f;
+  --code-bg: #f5f5f7;
 }
 
 * {
@@ -52,19 +53,23 @@ a:hover {
 }
 
 .topbar {
-  min-height: 76px;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 16px 22px;
+  padding: 10px 22px;
   border-bottom: 1px solid var(--line);
-  background: #fbfcf8;
+  background: rgba(248, 248, 250, 0.92);
+  backdrop-filter: blur(18px);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .eyebrow {
   margin: 0 0 3px;
-  color: var(--teal);
+  color: var(--accent);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -78,7 +83,7 @@ p {
 
 h1 {
   margin-bottom: 0;
-  font-size: 28px;
+  font-size: 25px;
   line-height: 1.1;
   letter-spacing: 0;
 }
@@ -104,28 +109,37 @@ h2 {
 .segmented button,
 .tab,
 .block-toolbar button,
-#assistant-generate {
+#assistant-generate,
+.top-actions button {
   min-height: 34px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
   background: #fff;
   color: var(--ink);
   padding: 7px 10px;
   cursor: pointer;
 }
 
+.primary-action {
+  border-color: var(--accent) !important;
+  background: var(--accent) !important;
+  color: #fff !important;
+  font-weight: 650;
+}
+
 .segmented button:hover,
 .tab:hover,
 .top-actions a:hover,
 .block-toolbar button:hover,
-#assistant-generate:hover {
-  border-color: var(--teal);
+#assistant-generate:hover,
+.top-actions button:hover {
+  border-color: var(--accent);
   text-decoration: none;
 }
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(230px, 0.82fr) minmax(360px, 1.4fr) minmax(260px, 0.95fr);
+  grid-template-columns: 360px minmax(440px, 1fr) 360px;
   gap: 12px;
   padding: 12px;
   min-height: 0;
@@ -134,10 +148,15 @@ h2 {
 .panel {
   min-width: 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--panel);
   padding: 14px;
-  box-shadow: 0 1px 0 rgba(32, 33, 31, 0.03);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.outline-panel,
+.evidence-panel {
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .panel-heading {
@@ -170,8 +189,8 @@ h2 {
 .artifact-row,
 .evidence-row {
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fbfcf8;
+  border-radius: 9px;
+  background: #fff;
 }
 
 .meta-grid div {
@@ -214,7 +233,7 @@ dd {
   align-items: center;
   gap: 8px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: #fff;
   padding: 9px;
   color: var(--ink);
@@ -223,8 +242,8 @@ dd {
 }
 
 .cell-button.is-active {
-  border-color: var(--teal);
-  background: var(--teal-soft);
+  border-color: rgba(0, 122, 255, 0.45);
+  background: var(--accent-soft);
 }
 
 .cell-index {
@@ -233,7 +252,7 @@ dd {
   display: inline-grid;
   place-items: center;
   border-radius: 6px;
-  background: var(--code-bg);
+  background: rgba(118, 118, 128, 0.12);
   color: var(--code);
   font-size: 12px;
   font-weight: 800;
@@ -276,7 +295,7 @@ dd {
 
 .editor-panel {
   display: grid;
-  grid-template-rows: auto auto minmax(280px, 1fr) auto auto auto;
+  grid-template-rows: auto auto minmax(260px, 46vh) auto auto auto;
   min-height: calc(100vh - 101px);
 }
 
@@ -294,7 +313,7 @@ dd {
   overflow: auto;
   margin: 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--code-bg);
   color: var(--code);
   padding: 14px;
@@ -302,6 +321,11 @@ dd {
   font-size: 13px;
   line-height: 1.55;
   resize: vertical;
+}
+
+.source-editor:focus {
+  outline: 3px solid rgba(0, 122, 255, 0.16);
+  border-color: rgba(0, 122, 255, 0.55);
 }
 
 .policy-strip {
@@ -315,8 +339,8 @@ dd {
 
 .policy-chip {
   border-radius: 999px;
-  background: var(--teal-soft);
-  color: var(--teal);
+  background: var(--accent-soft);
+  color: #0057b8;
   padding: 5px 8px;
   font-size: 12px;
   font-weight: 700;
@@ -353,8 +377,8 @@ dd {
 .prompt-row,
 .assistant-output {
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fbfcf8;
+  border-radius: 9px;
+  background: #fff;
   padding: 10px;
 }
 
@@ -382,9 +406,9 @@ dd {
 }
 
 .tab.is-active {
-  border-color: var(--teal);
-  background: var(--teal-soft);
-  color: var(--teal);
+  border-color: rgba(0, 122, 255, 0.32);
+  background: var(--accent-soft);
+  color: #0057b8;
   font-weight: 800;
 }
 
