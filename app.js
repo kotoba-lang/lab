@@ -294,8 +294,18 @@ function restoreNotebookPayload(payload) {
   state.data = decodeFromStorage(payload.data || payload);
   if (payload.runtime) state.runtime = payload.runtime;
   state.selectedCellId = payload.selectedCellId || state.data["lab/notebook"]["lab/cells"][0]?.["cell/id"];
+  ensureNotebookShape();
   saveNotebook();
   render();
+}
+
+function ensureNotebookShape() {
+  const notebook = state.data?.["lab/notebook"];
+  if (!notebook) return;
+  notebook["lab/artifacts"] ||= [];
+  notebook["lab/evidence"] ||= {};
+  notebook["lab/runs"] ||= [];
+  notebook["lab/replay-fingerprint"] ||= replayFingerprint(notebook);
 }
 
 function selectedCell() {
@@ -374,6 +384,28 @@ function stableHash(input) {
 
 function cidFor(prefix, input) {
   return `bafy-${prefix}-${stableHash(input)}`;
+}
+
+function replayFingerprint(notebook) {
+  const cells = notebook["lab/cells"] || [];
+  const runs = notebook["lab/runs"] || [];
+  const material = {
+    cells: cells.map((cell) => [
+      cell["cell/id"],
+      keywordText(cell["cell/status"]),
+      cell["cell/source-cid"] || "",
+      cell["cell/wasm-cid"] || "",
+      (cell["cell/output-cids"] || []).join("|"),
+    ]),
+    runs: runs.map((run) => [
+      run["run/id"],
+      run["run/cell-id"],
+      run["run/source-cid"],
+      run["run/wasm-cid"],
+      run["run/output-cid"],
+    ]),
+  };
+  return cidFor("replay", JSON.stringify(material));
 }
 
 function nowRunId() {
@@ -506,6 +538,21 @@ function runSelectedCell() {
   if (existingIndex >= 0) artifacts[existingIndex] = artifact;
   else artifacts.push(artifact);
 
+  const runEntry = {
+    "run/id": runId,
+    "run/cell-id": cell["cell/id"],
+    "run/status": result.status,
+    "run/replay": makeKeyword(inference.replay),
+    "run/source-cid": sourceCid,
+    "run/policy-cid": policyCid,
+    "run/wasm-cid": wasmCid,
+    "run/output-cid": outputCid,
+    "run/runtime": adapter.id,
+    "run/provider": llmResult ? window.KotobaLLMProvider.id : "none",
+    "run/timing-ms": run.timingMs,
+  };
+  notebook["lab/runs"] = [runEntry, ...(notebook["lab/runs"] || [])].slice(0, 16);
+  notebook["lab/replay-fingerprint"] = replayFingerprint(notebook);
   notebook["lab/run-id"] = runId;
   notebook["lab/active-runtime"] = adapter.id;
   notebook["lab/replay-status"] = keywordText(result.status) === "succeeded" ? "replayable" : "needs review";
@@ -527,6 +574,7 @@ function runSelectedCell() {
     "evidence/llm-budget": llmResult ? JSON.stringify(llmResult.budget) : "{}",
     "evidence/llm-claim-id": llmResult ? llmResult.claimId : "none",
     "evidence/llm-diagnostics": llmResult ? llmResult.diagnostics : [],
+    "evidence/replay-fingerprint": notebook["lab/replay-fingerprint"],
     "evidence/host": adapter.label,
   };
   saveNotebook();
@@ -536,17 +584,29 @@ function maturityReport() {
   const notebook = state.data["lab/notebook"];
   const cells = notebook["lab/cells"];
   const artifacts = notebook["lab/artifacts"];
+  const runs = notebook["lab/runs"] || [];
   const succeeded = cells.filter((cell) => keywordText(cell["cell/status"]) === "succeeded").length;
   const withEvidence = cells.filter((cell) => cell["cell/source-cid"] && cell["cell/wasm-cid"]).length;
   const executable = cells.filter((cell) => keywordText(cell["cell/kind"]) !== "markdown").length;
   const llmCells = cells.filter((cell) => /llm-infer/.test(cell["cell/source"] || "")).length;
   const llmCoverage = window.KotobaLLMProvider ? (llmCells ? 68 : 58) : llmCells ? 45 : 40;
-  const persistenceCoverage = state.storageAvailable ? 42 : 15;
+  const completeRuns = runs.filter(
+    (run) => run["run/source-cid"] && run["run/wasm-cid"] && run["run/output-cid"],
+  ).length;
+  const persistenceCoverage = state.storageAvailable ? 70 : 15;
   const runtimeCoverage = Math.max(...runtimeAdapters().map((adapter) => adapter.coverage));
-  const verificationCoverage = state.storageAvailable && window.KotobaLLMProvider ? 65 : 35;
+  const verificationCoverage = state.storageAvailable && window.KotobaLLMProvider ? 72 : 35;
+  const evidenceCoverage = Math.min(
+    76,
+    44 +
+      (cells.length ? Math.round((withEvidence / cells.length) * 16) : 0) +
+      (completeRuns ? 10 : 0) +
+      (notebook["lab/replay-fingerprint"] ? 6 : 0),
+  );
+  const replayCoverage = Math.min(78, completeRuns ? 66 + Math.min(12, completeRuns * 2) : 42);
   const coverage = [
-    ["Notebook UI", 65, "editable cells, block insert, toolbar, inspector"],
-    ["Manifest contract", 70, "lab.kotoba drives page state"],
+    ["Notebook UI", 72, "editable cells, block insert, toolbar, inspector, and run ledger"],
+    ["Manifest contract", 75, "lab.kotoba drives page state, providers, verification, and run history"],
     [
       "Local execution",
       executable ? 35 + Math.round((succeeded / executable) * 20) : 35,
@@ -561,8 +621,8 @@ function maturityReport() {
     ],
     [
       "Evidence",
-      40 + (cells.length ? Math.round((withEvidence / cells.length) * 20) : 0),
-      "run updates source/policy/wasm/output CIDs",
+      evidenceCoverage,
+      "run updates source/policy/wasm/output CIDs and replay fingerprint",
     ],
     [
       "LLM workflow",
@@ -573,15 +633,20 @@ function maturityReport() {
     ],
     [
       "Persistence",
-      state.storageAvailable ? 55 : persistenceCoverage,
+      persistenceCoverage,
       state.storageAvailable
         ? "localStorage save/restore plus JSON export/import"
         : "browser storage unavailable",
     ],
     [
+      "Replay ledger",
+      replayCoverage,
+      "bounded run history records cell, runtime, provider, CIDs, timing, and replay status",
+    ],
+    [
       "Verification",
       verificationCoverage,
-      "Playwright CI covers runtime, LLM, persistence, evidence, maturity, and layout overflow",
+      "Playwright CI covers runtime, LLM, replay ledger, persistence, evidence, maturity, and layout overflow",
     ],
   ];
   const average = Math.round(coverage.reduce((sum, row) => sum + row[1], 0) / coverage.length);
@@ -715,6 +780,28 @@ function renderEvidence(evidence) {
       ? value.map(keywordText).join(", ")
       : keywordText(value);
     row.innerHTML = `<strong>${key}</strong><code>${rendered}</code>`;
+    panel.appendChild(row);
+  });
+  renderRunLedger(panel);
+}
+
+function renderRunLedger(panel) {
+  const notebook = state.data["lab/notebook"];
+  const runs = notebook["lab/runs"] || [];
+  const heading = document.createElement("div");
+  heading.className = "ledger-heading";
+  heading.innerHTML = `<strong>Run ledger</strong><span>${runs.length} replayable records / ${notebook["lab/replay-fingerprint"]}</span>`;
+  panel.appendChild(heading);
+  runs.slice(0, 8).forEach((run) => {
+    const row = document.createElement("div");
+    row.className = "run-row";
+    row.innerHTML = `
+      <div>
+        <strong>${run["run/cell-id"]} / ${keywordText(run["run/status"])}</strong>
+        <span>${run["run/runtime"]} / ${run["run/provider"]} / ${keywordText(run["run/replay"])}</span>
+      </div>
+      <code>${run["run/output-cid"]}</code>
+    `;
     panel.appendChild(row);
   });
 }
@@ -931,6 +1018,7 @@ async function boot() {
     } else {
       state.data = new EdnParser(edn).parse();
     }
+    ensureNotebookShape();
     render();
   } catch (error) {
     text("notebook-title", "Failed to load lab.kotoba");

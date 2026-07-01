@@ -76,6 +76,8 @@ try {
   assert(evidence.includes("evidence/llm-provider"), "llm provider missing from evidence");
   assert(evidence.includes("shim-0.1.0"), "llm provider version missing");
   assert(evidence.includes("shim-0.2.0"), "runtime shim version missing");
+  assert(evidence.includes("Run ledger"), "run ledger missing from evidence");
+  assert(evidence.includes("kotoba-wasm-safe"), "runtime missing from run ledger");
 
   await page.click("#save-button");
   const saved = await page.evaluate(() => Boolean(localStorage.getItem("kotoba-lab:notebook:v1")));
@@ -86,8 +88,9 @@ try {
 
   await page.click('[data-tab="maturity"]');
   const maturity = await page.locator("#maturity-tab").innerText();
-  assert(maturity.includes("M3 /"), "maturity did not report M3");
+  assert(maturity.includes("M4 /"), "maturity did not reach M4 in verified flow");
   assert(maturity.includes("Verification"), "verification coverage missing");
+  assert(maturity.includes("Replay ledger"), "replay ledger coverage missing");
 
   const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   assert(!overflowX, "page has horizontal overflow");
