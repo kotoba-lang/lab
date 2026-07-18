@@ -1,0 +1,47 @@
+{:schema "kotoba-lab-verification-migration/v1"
+ :source
+ {:legacy "src/kotoba/lab/verification.cljc"
+  :canonical "src/kotoba/lab/verification.kotoba"
+  :conformance "test/kotoba/lab/verification_conformance.kotoba"}
+ :boundary-mapping
+ {:environment
+  {:legacy :heterogeneous-map
+   :kotoba [:record :kotoba.lab/environment
+            [[:schema :string]
+             [:runtime :string]
+             [:runtime-version :string]
+             [:llm-provider :string]
+             [:llm-provider-version :string]]]}
+  :review-snapshot
+  {:legacy :heterogeneous-map
+   :kotoba [:record :kotoba.lab/review-snapshot
+            [[:status :keyword]
+             [:id :string]
+             [:replay-fingerprint :string]
+             [:environment :string]
+             [:coverage :string]]]}
+  :maturity-report
+  {:legacy :heterogeneous-map
+   :kotoba [:record :kotoba.lab/maturity-report
+            [[:coverage :i64]
+             [:maturity :keyword]
+             [:covered [:set :keyword]]]]}}
+ :safety
+ {:ambient-authority false
+  :higher-order-validation-callbacks false
+  :closed-record-boundaries true
+  :bounded-coverage-items 14
+  :wrong-field-types :reject-at-component-boundary}
+ :target-status
+ {:web {:status :implemented-pending-compiler-release
+        :compiler-pr "https://github.com/kotoba-lang/compiler/pull/97"
+        :conformance-result 42}
+  :wasm {:status :blocked-by-qualified-typed-lowering
+         :first-rejection :typed-wasm-if
+         :migration-authorized false}}
+ :cutover
+ {:legacy-retained true
+  :consumer-cutover false
+  :requires [:released-project-typed-linker
+             :qualified-wasm-typed-conformance
+             :owner-approval]}}
