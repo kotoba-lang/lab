@@ -36,12 +36,12 @@
  {:web {:status :implemented-pending-compiler-release
         :compiler-pr "https://github.com/kotoba-lang/compiler/pull/97"
         :conformance-result 42}
-  :wasm {:status :blocked-by-qualified-typed-lowering
-         :first-rejection :typed-wasm-if
-         :migration-authorized false}}
+  :wasm {:status :implemented-pending-compiler-release
+         :compiler-pr "https://github.com/kotoba-lang/compiler/pull/97"
+         :conformance-result 42}}
  :cutover
  {:legacy-retained true
   :consumer-cutover false
   :requires [:released-project-typed-linker
-             :qualified-wasm-typed-conformance
+             :installed-release-web-wasm-conformance
              :owner-approval]}}
