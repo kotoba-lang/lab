@@ -50,8 +50,21 @@
          :conformance-result 42}}
  :cutover
  {:legacy-retained true
-  :consumer-cutover false
+  :consumer-cutover true
   :completed-requirements [:released-project-typed-linker
                            :installed-release-web-wasm-conformance
-                           :owner-approval]
-  :requires [:consumer-reference-cutover]}}
+                           :owner-approval
+                           :consumer-reference-cutover]
+  :requires []
+  :consumer-evidence {:external-workspace-references 0
+                      :lab-contract :canonical-kotoba
+                      :legacy-role :semantic-oracle
+                      :installed-release "v0.6.29"
+                      :checksum-verified true
+                      :project-digest "4dfcf271d8134e80e0b216e9ff54437131e30c6753f1035eadf9b4df641db14a"
+                      :web {:runtime-main 42
+                            :required-capabilities []
+                            :artifact-sha256 "33d3c42822cf5bd3f41261ad9e5d696fa89714358fe48a1e780bb3646af08210"}
+                      :wasm {:compile :passed
+                             :artifact-sha256 "0f871e99919c056b60a54c588b82fab9624604efb38b74fda194c099e2219dc7"}
+                      :browser-flow :passed}}}

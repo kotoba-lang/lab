@@ -10,16 +10,21 @@ https://kotoba-lang.github.io/lab/
 
 The lab contract is Kotoba/Clojure-first.
 
-- Verification contracts must live in `.cljc` files under `src/kotoba/lab/`.
+- Canonical verification contracts must live in `.kotoba` files; `.cljc` is
+  retained only as the legacy semantic oracle during cutover.
 - Do not add `.mjs`, `.sh`, shell-script, or ad-hoc script contracts.
 - Browser automation may use a minimal `.js` runner only to drive Playwright.
-- Product behavior, maturity rules, coverage requirements, and environment locks must be represented in `lab.kotoba` and `.cljc`.
+- Product behavior, maturity rules, coverage requirements, and environment locks must be represented in `lab.kotoba` and canonical `.kotoba` modules.
 - CI must treat JavaScript runners as wrappers, not as the source of truth.
 
 Current contract files:
 
-- `src/kotoba/lab/verification.cljc`
-- `src/kotoba/lab/verification_check.cljc`
+- `src/kotoba/lab/verification.kotoba`
+- `test/kotoba/lab/verification_conformance.kotoba`
+
+Legacy CLJC oracles remain at `src/kotoba/lab/verification.cljc` and
+`src/kotoba/lab/verification_check.cljc`; consumers must not select them as
+the active contract.
 
 Current browser runner:
 

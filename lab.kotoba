@@ -23,8 +23,8 @@
      :env/runtime-version "shim-0.2.0"
      :env/llm-provider "kotoba-research-assistant"
      :env/llm-provider-version "shim-0.1.0"
-     :env/verification-contract "src/kotoba/lab/verification.cljc"
-     :env/verification-check "src/kotoba/lab/verification_check.cljc"
+     :env/verification-contract "src/kotoba/lab/verification.kotoba"
+     :env/verification-check "test/kotoba/lab/verification_conformance.kotoba"
      :env/browser-runner "scripts/verify-lab.js"
      :env/status :locked}
     :lab/review-snapshot
@@ -57,8 +57,8 @@
      :maturity/next "replace runtime-shim.js and llm-provider-shim.js with real kotoba-wasm safe-build/runtime and provider adapters"}
     :lab/verification
     {:verification/status :ci-active
-     :verification/contract "src/kotoba/lab/verification.cljc"
-     :verification/check "src/kotoba/lab/verification_check.cljc"
+     :verification/contract "src/kotoba/lab/verification.kotoba"
+     :verification/check "test/kotoba/lab/verification_conformance.kotoba"
      :verification/browser-runner "scripts/verify-lab.js"
      :verification/coverage "runtime adapter, llm provider, environment lock, accessibility, persistence, evidence, maturity, and layout overflow"}
     :lab/cells
