@@ -39,15 +39,15 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-const cljcContract = await readFile(join(root, "src/kotoba/lab/verification.cljc"), "utf8");
-const cljcCheck = await readFile(join(root, "src/kotoba/lab/verification_check.cljc"), "utf8");
-assert(cljcContract.includes("(ns kotoba.lab.verification)"), "CLJC verification namespace missing");
-assert(cljcContract.includes("maturity-ready?"), "CLJC maturity contract missing");
-assert(cljcContract.includes("review-snapshot-ready?"), "CLJC snapshot contract missing");
-assert(cljcContract.includes(":review-snapshot"), "CLJC review snapshot coverage missing");
-assert(cljcCheck.includes("(ns kotoba.lab.verification-check"), "CLJC verification check namespace missing");
-assert(cljcCheck.includes("required-contract-coverage"), "CLJC contract coverage check missing");
-assert(cljcCheck.includes(":accessibility"), "CLJC accessibility check missing");
+const kotobaContract = await readFile(join(root, "src/kotoba/lab/verification.kotoba"), "utf8");
+const kotobaConformance = await readFile(join(root, "test/kotoba/lab/verification_conformance.kotoba"), "utf8");
+assert(kotobaContract.includes("(ns kotoba.lab.verification"), "Kotoba verification namespace missing");
+assert(kotobaContract.includes("maturity-ready?"), "Kotoba maturity contract missing");
+assert(kotobaContract.includes("review-snapshot-ready?"), "Kotoba snapshot contract missing");
+assert(kotobaContract.includes(":review-snapshot"), "Kotoba review snapshot coverage missing");
+assert(kotobaConformance.includes("(ns kotoba.lab.verification-conformance"), "Kotoba conformance namespace missing");
+assert(kotobaConformance.includes("[kotoba.lab.verification :as verification]"), "canonical contract import missing");
+assert(kotobaConformance.includes("(defn main"), "Kotoba conformance entry missing");
 
 await new Promise((resolve) => server.listen(port, resolve));
 
@@ -95,8 +95,8 @@ try {
   assert(runtimeText.includes("kotoba-lab-notebook/v1"), "schema lock missing");
   assert(runtimeText.includes("shim-0.2.0"), "runtime lock version missing");
   assert(runtimeText.includes("shim-0.1.0"), "provider lock version missing");
-  assert(runtimeText.includes("src/kotoba/lab/verification.cljc"), "CLJC verification contract missing");
-  assert(runtimeText.includes("src/kotoba/lab/verification_check.cljc"), "CLJC verification check missing");
+  assert(runtimeText.includes("src/kotoba/lab/verification.kotoba"), "Kotoba verification contract missing");
+  assert(runtimeText.includes("test/kotoba/lab/verification_conformance.kotoba"), "Kotoba conformance contract missing");
   assert(
     (await page.locator('[data-tab="runtime"]').getAttribute("aria-selected")) === "true",
     "runtime tab aria-selected did not update",

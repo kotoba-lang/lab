@@ -215,8 +215,8 @@ function environmentLockStatus() {
     lock["env/llm-provider"] === "kotoba-research-assistant" &&
     lock["env/llm-provider-version"] === window.KotobaLLMProvider?.version;
   const schemaOk = lock["env/schema"] === "kotoba-lab-notebook/v1";
-  const verificationOk = lock["env/verification-contract"] === "src/kotoba/lab/verification.cljc";
-  const verificationCheckOk = lock["env/verification-check"] === "src/kotoba/lab/verification_check.cljc";
+  const verificationOk = lock["env/verification-contract"] === "src/kotoba/lab/verification.kotoba";
+  const verificationCheckOk = lock["env/verification-check"] === "test/kotoba/lab/verification_conformance.kotoba";
   const runnerOk = lock["env/browser-runner"] === "scripts/verify-lab.js";
   const locked = runtimeOk && providerOk && schemaOk && verificationOk && verificationCheckOk && runnerOk;
   return {
@@ -687,7 +687,7 @@ function maturityReport() {
   const runtimeCoverage = Math.max(...runtimeAdapters().map((adapter) => adapter.coverage));
   const environment = environmentLockStatus();
   const hasSnapshot = Boolean(notebook["lab/review-snapshot"]?.["snapshot/id"]);
-  const contractVerified = environment.lock["env/verification-contract"] === "src/kotoba/lab/verification.cljc";
+  const contractVerified = environment.lock["env/verification-contract"] === "src/kotoba/lab/verification.kotoba";
   const verificationCoverage = state.storageAvailable && window.KotobaLLMProvider ? (allExecutableSucceeded ? 76 : 72) : 35;
   const evidenceCoverage = Math.min(
     76,
