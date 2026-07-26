@@ -10,6 +10,7 @@ const mimeTypes = new Map([
   [".js", "text/javascript; charset=utf-8"],
   [".css", "text/css; charset=utf-8"],
   [".svg", "image/svg+xml"],
+  [".edn", "application/edn; charset=utf-8"],
   [".kotoba", "text/plain; charset=utf-8"],
 ]);
 
