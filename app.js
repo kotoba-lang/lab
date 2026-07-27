@@ -139,11 +139,27 @@ class EdnParser {
 }
 
 function extractLabUi(source) {
-  const edn = source.trim();
-  if (!edn.startsWith("{") || !edn.endsWith("}")) {
-    throw new Error("lab.edn must contain one EDN map");
+  const marker = "(def lab-ui";
+  const start = source.indexOf(marker);
+  if (start === -1) throw new Error("lab-ui definition not found");
+  const bodyStart = source.indexOf("{", start);
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = bodyStart; i < source.length; i += 1) {
+    const ch = source[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    if (ch === "{") depth += 1;
+    if (ch === "}") depth -= 1;
+    if (depth === 0) return source.slice(bodyStart, i + 1);
   }
-  return edn;
+  throw new Error("lab-ui map did not close");
 }
 
 function text(id, value) {
@@ -199,8 +215,8 @@ function environmentLockStatus() {
     lock["env/llm-provider"] === "kotoba-research-assistant" &&
     lock["env/llm-provider-version"] === window.KotobaLLMProvider?.version;
   const schemaOk = lock["env/schema"] === "kotoba-lab-notebook/v1";
-  const verificationOk = lock["env/verification-contract"] === "src/kotoba/lab/verification.cljc";
-  const verificationCheckOk = lock["env/verification-check"] === "src/kotoba/lab/verification_check.cljc";
+  const verificationOk = lock["env/verification-contract"] === "src/kotoba/lab/verification.kotoba";
+  const verificationCheckOk = lock["env/verification-check"] === "test/kotoba/lab/verification_conformance.kotoba";
   const runnerOk = lock["env/browser-runner"] === "scripts/verify-lab.js";
   const locked = runtimeOk && providerOk && schemaOk && verificationOk && verificationCheckOk && runnerOk;
   return {
@@ -671,7 +687,7 @@ function maturityReport() {
   const runtimeCoverage = Math.max(...runtimeAdapters().map((adapter) => adapter.coverage));
   const environment = environmentLockStatus();
   const hasSnapshot = Boolean(notebook["lab/review-snapshot"]?.["snapshot/id"]);
-  const contractVerified = environment.lock["env/verification-contract"] === "src/kotoba/lab/verification.cljc";
+  const contractVerified = environment.lock["env/verification-contract"] === "src/kotoba/lab/verification.kotoba";
   const verificationCoverage = state.storageAvailable && window.KotobaLLMProvider ? (allExecutableSucceeded ? 76 : 72) : 35;
   const evidenceCoverage = Math.min(
     76,
@@ -685,7 +701,7 @@ function maturityReport() {
   const accessibilityCoverage = 78;
   const coverage = [
     ["Notebook UI", 72, "editable cells, block insert, toolbar, inspector, and run ledger"],
-    ["Manifest contract", 75, "lab.edn drives page state, providers, verification, and run history"],
+    ["Manifest contract", 75, "lab.kotoba drives page state, providers, verification, and run history"],
     [
       "Local execution",
       executable ? 38 + Math.round((succeeded / executable) * 27) : 35,
@@ -1214,7 +1230,7 @@ async function boot() {
     } catch {
       state.storageAvailable = false;
     }
-    const response = await fetch("./lab.edn", { cache: "no-store" });
+    const response = await fetch("./lab.kotoba", { cache: "no-store" });
     const source = await response.text();
     const edn = extractLabUi(source);
     const saved = loadSavedNotebook();
@@ -1228,7 +1244,7 @@ async function boot() {
     ensureNotebookShape();
     render();
   } catch (error) {
-    text("notebook-title", "Failed to load lab.edn");
+    text("notebook-title", "Failed to load lab.kotoba");
     document.getElementById("source-editor").value = error.stack || String(error);
   }
 }
